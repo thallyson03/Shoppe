@@ -156,6 +156,17 @@ docker compose up -d --build
 
 A imagem aplica `prisma migrate deploy` antes de iniciar o processo.
 
+## Deploy no Coolify
+
+Passo a passo completo: [`docs/COOLIFY.md`](./docs/COOLIFY.md).
+
+Resumo (Opção A — recomendada):
+
+1. Criar **PostgreSQL** no Coolify e copiar a Internal URL  
+2. Criar **Application** → repo `thallyson03/Shoppe` → Build Pack **Dockerfile** → porta **3000**  
+3. Colar as Environment Variables (incluindo `DATABASE_URL` e Evolution/Shopee)  
+4. **Deploy** e validar `GET /health`
+
 ---
 
 ## Banco de dados (Prisma / SQL)

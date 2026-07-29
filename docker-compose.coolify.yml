@@ -1,0 +1,66 @@
+# Coolify — Docker Compose (app + PostgreSQL no mesmo stack)
+#
+# No Coolify: New Resource → Docker Compose
+# Docker Compose Location: docker-compose.coolify.yml
+#
+# Defina POSTGRES_PASSWORD e as variáveis da app no painel Environment Variables.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-shopee}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-shopee_offers}
+    volumes:
+      - shopee_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-shopee} -d ${POSTGRES_DB:-shopee_offers}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: ${PORT:-3000}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-shopee}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-shopee_offers}?schema=public
+      SHOPEE_APP_ID: ${SHOPEE_APP_ID}
+      SHOPEE_SECRET: ${SHOPEE_SECRET}
+      SHOPEE_GRAPHQL_URL: ${SHOPEE_GRAPHQL_URL:-https://open-api.affiliate.shopee.com.br/graphql}
+      SHOPEE_KEYWORD: ${SHOPEE_KEYWORD:-}
+      SHOPEE_LIST_TYPE: ${SHOPEE_LIST_TYPE:-0}
+      SHOPEE_SORT_TYPE: ${SHOPEE_SORT_TYPE:-2}
+      SHOPEE_PAGE_LIMIT: ${SHOPEE_PAGE_LIMIT:-20}
+      FILTER_MIN_COMMISSION_RATE: ${FILTER_MIN_COMMISSION_RATE:-0.03}
+      FILTER_MIN_DISCOUNT_RATE: ${FILTER_MIN_DISCOUNT_RATE:-10}
+      FILTER_MIN_RATING: ${FILTER_MIN_RATING:-4.0}
+      FILTER_MIN_SALES: ${FILTER_MIN_SALES:-50}
+      FILTER_MAX_OFFERS_PER_RUN: ${FILTER_MAX_OFFERS_PER_RUN:-3}
+      EVOLUTION_API_URL: ${EVOLUTION_API_URL}
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
+      EVOLUTION_INSTANCE: ${EVOLUTION_INSTANCE}
+      EVOLUTION_GROUP_JID: ${EVOLUTION_GROUP_JID}
+      EVOLUTION_SEND_DELAY_MS: ${EVOLUTION_SEND_DELAY_MS:-2000}
+      CRON_SCHEDULE: ${CRON_SCHEDULE:-*/5 * * * *}
+      CRON_RUN_ON_START: ${CRON_RUN_ON_START:-true}
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  shopee_pg_data:
