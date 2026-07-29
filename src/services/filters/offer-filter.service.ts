@@ -14,7 +14,7 @@ export class OfferFilterService {
       minDiscountRate: env.FILTER_MIN_DISCOUNT_RATE,
       minRating: env.FILTER_MIN_RATING,
       minSales: env.FILTER_MIN_SALES,
-      maxOffersPerRun: env.FILTER_MAX_OFFERS_PER_RUN,
+      maxOffersPerRun: env.FILTER_MAX_SAVE_PER_RUN,
     },
   ) {}
 

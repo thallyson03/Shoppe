@@ -110,4 +110,25 @@ export class OfferRepository {
   async count(where?: Prisma.OfferWhereInput): Promise<number> {
     return prisma.offer.count({ where });
   }
+
+  async countPublishedBetween(start: Date, end: Date): Promise<number> {
+    return prisma.offer.count({
+      where: {
+        published: true,
+        publishedAt: {
+          gte: start,
+          lt: end,
+        },
+      },
+    });
+  }
+
+  async findLastPublishedAt(): Promise<Date | null> {
+    const row = await prisma.offer.findFirst({
+      where: { published: true, publishedAt: { not: null } },
+      orderBy: { publishedAt: 'desc' },
+      select: { publishedAt: true },
+    });
+    return row?.publishedAt ?? null;
+  }
 }

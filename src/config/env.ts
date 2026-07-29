@@ -30,7 +30,22 @@ const envSchema = z.object({
   FILTER_MIN_DISCOUNT_RATE: z.coerce.number().min(0).max(100).default(10),
   FILTER_MIN_RATING: z.coerce.number().min(0).max(5).default(4),
   FILTER_MIN_SALES: z.coerce.number().int().min(0).default(50),
-  FILTER_MAX_OFFERS_PER_RUN: z.coerce.number().int().min(1).max(20).default(3),
+  /** Por ciclo: quantas candidatas salvar na fila */
+  FILTER_MAX_SAVE_PER_RUN: z.coerce.number().int().min(1).max(50).default(10),
+  /** Por ciclo: quantas publicar no WhatsApp (respeita 1/min) */
+  FILTER_MAX_OFFERS_PER_RUN: z.coerce.number().int().min(1).max(20).default(1),
+
+  /** Limites de publicação (anti-spam) */
+  PUBLISH_MAX_PER_DAY: z.coerce.number().int().min(1).max(500).default(50),
+  PUBLISH_MIN_INTERVAL_MS: z.coerce.number().int().min(0).default(60_000),
+  PUBLISH_TIMEZONE: z.string().default('America/Sao_Paulo'),
+  PUBLISH_MORNING_START: z.coerce.number().int().min(0).max(23).default(7),
+  PUBLISH_AFTERNOON_START: z.coerce.number().int().min(0).max(23).default(12),
+  PUBLISH_NIGHT_START: z.coerce.number().int().min(0).max(23).default(18),
+  PUBLISH_NIGHT_END: z.coerce.number().int().min(1).max(24).default(23),
+  PUBLISH_MORNING_LIMIT: z.coerce.number().int().min(0).max(500).default(17),
+  PUBLISH_AFTERNOON_LIMIT: z.coerce.number().int().min(0).max(500).default(17),
+  PUBLISH_NIGHT_LIMIT: z.coerce.number().int().min(0).max(500).default(16),
 
   EVOLUTION_API_URL: z.string().url('EVOLUTION_API_URL inválida'),
   EVOLUTION_API_KEY: z.string().min(1, 'EVOLUTION_API_KEY é obrigatória'),

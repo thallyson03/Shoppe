@@ -7,6 +7,7 @@ import { prisma } from '../database/prisma.js';
 import { JobRunRepository } from '../repositories/job-run.repository.js';
 import { OfferRepository } from '../repositories/offer.repository.js';
 import { EvolutionMessageService } from '../services/evolution/index.js';
+import { PublishQuotaService } from '../services/filters/publish-quota.service.js';
 import type { OffersCronJob } from '../cron/offers.cron.js';
 import { AppError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
@@ -16,6 +17,7 @@ export function createRoutes(cronJob: OffersCronJob): Router {
   const offerRepository = new OfferRepository();
   const jobRunRepository = new JobRunRepository();
   const evolutionService = new EvolutionMessageService();
+  const quotaService = new PublishQuotaService();
 
   /** Health check para Docker / load balancer */
   router.get('/health', async (_req: Request, res: Response, next: NextFunction) => {
@@ -37,15 +39,17 @@ export function createRoutes(cronJob: OffersCronJob): Router {
   /** Métricas resumidas */
   router.get('/status', async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      const [totalOffers, published, unpublished, recentJobs] = await Promise.all([
+      const [totalOffers, published, unpublished, recentJobs, quota] = await Promise.all([
         offerRepository.count(),
         offerRepository.count({ published: true }),
         offerRepository.count({ published: false }),
         jobRunRepository.findRecent(5),
+        quotaService.evaluate(),
       ]);
 
       res.json({
         offers: { total: totalOffers, published, unpublished },
+        quota,
         recentJobs,
       });
     } catch (error) {

@@ -2,13 +2,10 @@
  * Orquestrador do pipeline de ofertas (Application Service).
  *
  * Fluxo:
- * 1. Buscar ofertas na Shopee Open API
+ * 1. Buscar ofertas na Shopee Open API (a cada 5 min via cron)
  * 2. Filtrar por qualidade
- * 3. Remover já existentes (deduplicação)
- * 4. Persistência
- * 5. Montar mensagem
- * 6. Publicar no grupo WhatsApp via Evolution
- * 7. Registrar logs / job run
+ * 3. Salvar novas no banco (sem spam imediato)
+ * 4. Publicar respeitando cota: 1/min, 50/dia, manhã/tarde/noite
  */
 
 import { createHash } from 'node:crypto';
@@ -17,6 +14,7 @@ import { JobRunRepository, PublishLogRepository } from '../repositories/job-run.
 import { OfferRepository } from '../repositories/offer.repository.js';
 import { EvolutionMessageService } from './evolution/index.js';
 import { MessageBuilderService, OfferFilterService } from './filters/index.js';
+import { PublishQuotaService } from './filters/publish-quota.service.js';
 import { ShopeeOfferService } from './shopee/index.js';
 import { sleep } from '../utils/format.js';
 import { logger } from '../utils/logger.js';
@@ -31,6 +29,7 @@ export class OfferPipelineService {
     private readonly offerRepository: OfferRepository = new OfferRepository(),
     private readonly publishLogRepository: PublishLogRepository = new PublishLogRepository(),
     private readonly jobRunRepository: JobRunRepository = new JobRunRepository(),
+    private readonly quotaService: PublishQuotaService = new PublishQuotaService(),
   ) {}
 
   /**
@@ -48,9 +47,6 @@ export class OfferPipelineService {
     };
 
     try {
-      // 0. Reprocessa ofertas salvas que falharam no envio anterior
-      result.publishedCount += await this.retryUnpublished();
-
       // 1. Buscar
       const fetched = await this.shopeeService.getOffers();
       result.fetchedCount = fetched.length;
@@ -59,44 +55,24 @@ export class OfferPipelineService {
       const filtered = this.filterService.filter(fetched);
       result.filteredCount = filtered.length;
 
-      if (filtered.length === 0) {
-        await this.jobRunRepository.finish(job.id, {
-          status: 'success',
-          ...result,
-        });
-        logger.info({ jobId: job.id, ...result }, 'Nenhuma oferta nova passou no filtro');
-        return result;
-      }
+      // 3. Deduplicar + salvar (ficam unpublished até a cota liberar)
+      if (filtered.length > 0) {
+        const existingIds = await this.offerRepository.findExistingItemIds(
+          filtered.map((o) => o.itemId),
+        );
+        const fresh = filtered.filter((o) => !existingIds.has(o.itemId));
+        result.newOffersCount = fresh.length;
 
-      // 3. Deduplicar contra o banco
-      const existingIds = await this.offerRepository.findExistingItemIds(
-        filtered.map((o) => o.itemId),
-      );
-      const fresh = filtered.filter((o) => !existingIds.has(o.itemId));
-      result.newOffersCount = fresh.length;
-
-      if (fresh.length === 0) {
-        await this.jobRunRepository.finish(job.id, {
-          status: 'success',
-          ...result,
-        });
-        logger.info({ jobId: job.id, ...result }, 'Todas as ofertas já existem no banco');
-        return result;
-      }
-
-      // 4–6. Persistir + enviar
-      for (const offer of fresh) {
-        const published = await this.persistAndPublish(offer);
-        if (published) {
-          result.publishedCount += 1;
-          if (env.EVOLUTION_SEND_DELAY_MS > 0) {
-            await sleep(env.EVOLUTION_SEND_DELAY_MS);
-          }
+        for (const offer of fresh) {
+          await this.persistOffer(offer);
         }
       }
 
+      // 4. Publicar fila respeitando cota (1 por ciclo / 1 por minuto / 50 por dia)
+      result.publishedCount = await this.publishFromQueue();
+
       await this.jobRunRepository.finish(job.id, {
-        status: result.publishedCount > 0 || fresh.length === 0 ? 'success' : 'partial',
+        status: 'success',
         ...result,
       });
 
@@ -114,12 +90,58 @@ export class OfferPipelineService {
     }
   }
 
-  /** Reenvia ofertas que ficaram com published=false após falha na Evolution */
-  private async retryUnpublished(): Promise<number> {
-    const pending = await this.offerRepository.findUnpublished(env.FILTER_MAX_OFFERS_PER_RUN);
-    let sent = 0;
+  /** Salva oferta sem enviar (fila de publicação) */
+  private async persistOffer(offer: NormalizedOffer): Promise<void> {
+    const messageText = this.messageBuilder.build(offer);
+    const contentHash = this.hashOffer(offer);
 
-    for (const row of pending) {
+    await this.offerRepository.create({
+      ...offer,
+      messageText,
+      contentHash,
+    });
+  }
+
+  /**
+   * Consome a fila unpublished sob as regras de frequência.
+   */
+  private async publishFromQueue(): Promise<number> {
+    let sent = 0;
+    const maxThisRun = env.FILTER_MAX_OFFERS_PER_RUN;
+    let waitedForInterval = false;
+
+    while (sent < maxThisRun) {
+      let quota = await this.quotaService.evaluate();
+
+      if (!quota.allowed && quota.msUntilNextSlot > 0 && !waitedForInterval && sent === 0) {
+        const wait = Math.min(quota.msUntilNextSlot, 55_000);
+        logger.info({ waitMs: wait, reason: quota.reason }, 'Aguardando intervalo mínimo');
+        await sleep(wait);
+        waitedForInterval = true;
+        quota = await this.quotaService.evaluate();
+      }
+
+      if (!quota.allowed) {
+        logger.info(
+          {
+            reason: quota.reason,
+            period: quota.period,
+            publishedToday: quota.publishedToday,
+            periodLimit: quota.periodLimit,
+            dailyLimit: quota.dailyLimit,
+          },
+          'Publicação adiada pela cota',
+        );
+        break;
+      }
+
+      const pending = await this.offerRepository.findUnpublished(1);
+      if (pending.length === 0) {
+        logger.info('Fila de ofertas vazia — nada para publicar');
+        break;
+      }
+
+      const row = pending[0]!;
       const messageText =
         row.messageText ??
         this.messageBuilder.build({
@@ -155,64 +177,29 @@ export class OfferPipelineService {
           status: 'sent',
         });
         sent += 1;
-        if (env.EVOLUTION_SEND_DELAY_MS > 0) {
-          await sleep(env.EVOLUTION_SEND_DELAY_MS);
-        }
+        logger.info(
+          {
+            itemId: row.itemId,
+            offerId: row.id,
+            period: quota.period,
+            publishedToday: quota.publishedToday + 1,
+          },
+          'Oferta publicada no WhatsApp',
+        );
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Erro no reenvio';
+        const message = error instanceof Error ? error.message : 'Erro no envio';
         await this.publishLogRepository.create({
           offerId: row.id,
           groupJid: env.EVOLUTION_GROUP_JID,
           status: 'error',
           errorMessage: message,
         });
-        logger.warn({ offerId: row.id, err: error }, 'Reenvio de oferta pendente falhou');
+        logger.error({ itemId: row.itemId, err: error }, 'Falha ao publicar oferta');
+        break;
       }
     }
 
     return sent;
-  }
-
-  private async persistAndPublish(offer: NormalizedOffer): Promise<boolean> {
-    const messageText = this.messageBuilder.build(offer);
-    const contentHash = this.hashOffer(offer);
-
-    const saved = await this.offerRepository.create({
-      ...offer,
-      messageText,
-      contentHash,
-    });
-
-    try {
-      const sendResult = await this.evolutionService.sendOfferToGroup(
-        messageText,
-        offer.imageUrl,
-      );
-
-      await this.offerRepository.markAsPublished(saved.id, messageText);
-      await this.publishLogRepository.create({
-        offerId: saved.id,
-        groupJid: env.EVOLUTION_GROUP_JID,
-        evolutionMsgId: sendResult.messageId,
-        status: 'sent',
-      });
-
-      logger.info(
-        { itemId: offer.itemId, offerId: saved.id, messageId: sendResult.messageId },
-        'Oferta publicada no WhatsApp',
-      );
-      return true;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro no envio';
-      await this.publishLogRepository.create({
-        offerId: saved.id,
-        groupJid: env.EVOLUTION_GROUP_JID,
-        status: 'error',
-        errorMessage: message,
-      });
-      logger.error({ itemId: offer.itemId, err: error }, 'Falha ao publicar oferta');
-      return false;
-    }
   }
 
   private hashOffer(offer: NormalizedOffer): string {
