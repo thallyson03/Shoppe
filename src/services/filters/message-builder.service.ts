@@ -5,7 +5,6 @@
 import type { NormalizedOffer } from '../../models/offer.model.js';
 import {
   formatBRL,
-  formatCommissionPercent,
   formatDiscountPercent,
   truncate,
 } from '../../utils/format.js';
@@ -24,11 +23,6 @@ export class MessageBuilderService {
       offer.sales != null && offer.sales > 0
         ? `🔥 ${offer.sales.toLocaleString('pt-BR')} vendidos`
         : null;
-    const shop = offer.shopName ? `🏪 ${truncate(offer.shopName, 40)}` : null;
-    const commission = formatCommissionPercent(offer.commissionRate);
-
-    const meta = [rating, sales, shop].filter(Boolean).join('\n');
-
     return [
       '🛍️ *OFERTA SHOPEE*',
       '',
@@ -39,9 +33,6 @@ export class MessageBuilderService {
       meta,
       '',
       `🔗 ${offer.offerLink}`,
-      '',
-      `_Comissão afiliado: ${commission}_`,
-      '_Envio automático · Confira no app_',
     ]
       .filter((line) => line !== null)
       .join('\n');
