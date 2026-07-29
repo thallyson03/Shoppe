@@ -1,0 +1,81 @@
+// =============================================================================
+// Prisma Schema — Shopee Offers Monitor
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Oferta de produto capturada da Open API Shopee Affiliate
+model Offer {
+  id                   String    @id @default(cuid())
+  /// ID único do item na Shopee (chave de deduplicação)
+  itemId               String    @unique @map("item_id")
+  shopId               String?   @map("shop_id")
+  productName          String    @map("product_name")
+  productLink          String?   @map("product_link")
+  offerLink            String    @map("offer_link")
+  imageUrl             String?   @map("image_url")
+  priceMin             Decimal?  @map("price_min") @db.Decimal(12, 2)
+  priceMax             Decimal?  @map("price_max") @db.Decimal(12, 2)
+  priceDiscountRate    Int?      @map("price_discount_rate")
+  sales                Int?
+  ratingStar           Decimal?  @map("rating_star") @db.Decimal(3, 2)
+  commissionRate       Decimal?  @map("commission_rate") @db.Decimal(8, 4)
+  sellerCommissionRate Decimal?  @map("seller_commission_rate") @db.Decimal(8, 4)
+  shopeeCommissionRate Decimal?  @map("shopee_commission_rate") @db.Decimal(8, 4)
+  shopName             String?   @map("shop_name")
+  /// Mensagem formatada enviada ao WhatsApp
+  messageText          String?   @map("message_text") @db.Text
+  /// Indica se já foi publicada no grupo
+  published            Boolean   @default(false)
+  publishedAt          DateTime? @map("published_at")
+  /// Hash/fingerprint para reforçar deduplicação
+  contentHash          String?   @map("content_hash")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  publishLogs PublishLog[]
+
+  @@index([published, createdAt])
+  @@index([createdAt])
+  @@map("offers")
+}
+
+/// Histórico de envios para o WhatsApp (auditoria)
+model PublishLog {
+  id             String   @id @default(cuid())
+  offerId        String   @map("offer_id")
+  groupJid       String   @map("group_jid")
+  evolutionMsgId String?  @map("evolution_msg_id")
+  status         String   @default("sent")
+  errorMessage   String?  @map("error_message") @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  offer Offer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  @@index([offerId])
+  @@index([createdAt])
+  @@map("publish_logs")
+}
+
+/// Registro de cada execução do cron (observabilidade)
+model JobRun {
+  id             String    @id @default(cuid())
+  startedAt      DateTime  @default(now()) @map("started_at")
+  finishedAt     DateTime? @map("finished_at")
+  status         String    @default("running")
+  fetchedCount   Int       @default(0) @map("fetched_count")
+  filteredCount  Int       @default(0) @map("filtered_count")
+  newOffersCount Int       @default(0) @map("new_offers_count")
+  publishedCount Int       @default(0) @map("published_count")
+  errorMessage   String?   @map("error_message") @db.Text
+
+  @@index([startedAt])
+  @@map("job_runs")
+}

@@ -1,0 +1,71 @@
+/**
+ * Configuração centralizada da aplicação.
+ * Valida variáveis de ambiente com Zod na inicialização (fail-fast).
+ */
+
+import { config as loadDotenv } from 'dotenv';
+import { z } from 'zod';
+
+loadDotenv();
+
+const envSchema = z.object({
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  PORT: z.coerce.number().int().positive().default(3000),
+  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+
+  DATABASE_URL: z.string().min(1, 'DATABASE_URL é obrigatória'),
+
+  SHOPEE_APP_ID: z.string().min(1, 'SHOPEE_APP_ID é obrigatório'),
+  SHOPEE_SECRET: z.string().min(1, 'SHOPEE_SECRET é obrigatório'),
+  SHOPEE_GRAPHQL_URL: z
+    .string()
+    .url()
+    .default('https://open-api.affiliate.shopee.com.br/graphql'),
+  SHOPEE_KEYWORD: z.string().optional().default(''),
+  SHOPEE_LIST_TYPE: z.coerce.number().int().min(0).max(2).default(0),
+  SHOPEE_SORT_TYPE: z.coerce.number().int().min(1).max(5).default(2),
+  SHOPEE_PAGE_LIMIT: z.coerce.number().int().min(1).max(50).default(20),
+
+  FILTER_MIN_COMMISSION_RATE: z.coerce.number().min(0).max(1).default(0.03),
+  FILTER_MIN_DISCOUNT_RATE: z.coerce.number().min(0).max(100).default(10),
+  FILTER_MIN_RATING: z.coerce.number().min(0).max(5).default(4),
+  FILTER_MIN_SALES: z.coerce.number().int().min(0).default(50),
+  FILTER_MAX_OFFERS_PER_RUN: z.coerce.number().int().min(1).max(20).default(3),
+
+  EVOLUTION_API_URL: z.string().url('EVOLUTION_API_URL inválida'),
+  EVOLUTION_API_KEY: z.string().min(1, 'EVOLUTION_API_KEY é obrigatória'),
+  EVOLUTION_INSTANCE: z.string().min(1, 'EVOLUTION_INSTANCE é obrigatória'),
+  EVOLUTION_GROUP_JID: z
+    .string()
+    .min(1, 'EVOLUTION_GROUP_JID é obrigatório')
+    .refine((v) => v.includes('@g.us') || /^\d+$/.test(v), {
+      message: 'EVOLUTION_GROUP_JID deve ser um JID de grupo (@g.us) ou número',
+    }),
+  EVOLUTION_SEND_DELAY_MS: z.coerce.number().int().min(0).default(2000),
+
+  CRON_SCHEDULE: z.string().default('*/5 * * * *'),
+  CRON_RUN_ON_START: z
+    .string()
+    .optional()
+    .default('true')
+    .transform((v) => v === 'true' || v === '1'),
+});
+
+export type AppConfig = z.infer<typeof envSchema>;
+
+function loadConfig(): AppConfig {
+  const parsed = envSchema.safeParse(process.env);
+
+  if (!parsed.success) {
+    const details = parsed.error.issues
+      .map((issue) => `  - ${issue.path.join('.')}: ${issue.message}`)
+      .join('\n');
+
+    throw new Error(`Variáveis de ambiente inválidas:\n${details}`);
+  }
+
+  return parsed.data;
+}
+
+/** Singleton imutável de configuração — carregado uma vez na subida do processo */
+export const env: AppConfig = loadConfig();
