@@ -61,7 +61,16 @@ export interface EvolutionSendTextPayload {
   linkPreview?: boolean;
 }
 
-/** Resposta simplificada da Evolution após sendText */
+/** Payload de envio de mídia (imagem do produto) */
+export interface EvolutionSendMediaPayload {
+  number: string;
+  mediaUrl: string;
+  caption: string;
+  fileName?: string;
+  delay?: number;
+}
+
+/** Resposta simplificada da Evolution após sendText/sendMedia */
 export interface EvolutionSendTextResult {
   messageId: string | null;
   raw: unknown;

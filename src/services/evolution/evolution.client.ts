@@ -1,14 +1,15 @@
 /**
  * Cliente Evolution API — envio de mensagens WhatsApp para grupos.
  *
- * Endpoint: POST /message/sendText/{instance}
- * Header: apikey
- * Body: { number: groupJid, text, delay?, linkPreview? }
+ * Endpoints:
+ * - POST /message/sendText/{instance}
+ * - POST /message/sendMedia/{instance}  (imagem do produto + caption)
  */
 
 import axios, { type AxiosInstance } from 'axios';
 import { env } from '../../config/env.js';
 import type {
+  EvolutionSendMediaPayload,
   EvolutionSendTextPayload,
   EvolutionSendTextResult,
 } from '../../models/offer.model.js';
@@ -25,7 +26,7 @@ export class EvolutionClient {
   ) {
     this.http = axios.create({
       baseURL: baseUrl.replace(/\/$/, ''),
-      timeout: 30_000,
+      timeout: 45_000,
       headers: {
         apikey: this.apiKey,
         'Content-Type': 'application/json',
@@ -42,7 +43,7 @@ export class EvolutionClient {
     try {
       logger.info(
         { number: payload.number, textLength: payload.text.length },
-        'Enviando mensagem via Evolution API',
+        'Enviando texto via Evolution API',
       );
 
       const response = await this.http.post(path, {
@@ -52,22 +53,42 @@ export class EvolutionClient {
         linkPreview: payload.linkPreview ?? true,
       });
 
-      const messageId =
-        (response.data as { key?: { id?: string } })?.key?.id ??
-        (response.data as { messageId?: string })?.messageId ??
-        null;
-
-      return { messageId, raw: response.data };
+      return this.extractResult(response.data);
     } catch (error) {
-      const detail =
-        axios.isAxiosError(error) && error.response
-          ? `HTTP ${error.response.status}: ${JSON.stringify(error.response.data)}`
-          : error instanceof Error
-            ? error.message
-            : 'Erro desconhecido';
+      throw this.wrapError(error, 'texto');
+    }
+  }
 
-      logger.error({ err: error }, 'Falha ao enviar mensagem Evolution');
-      throw new EvolutionApiError(`Falha Evolution API: ${detail}`, error);
+  /**
+   * Envia imagem (URL da Shopee) com legenda para o grupo.
+   * POST /message/sendMedia/{instance}
+   */
+  async sendImage(payload: EvolutionSendMediaPayload): Promise<EvolutionSendTextResult> {
+    const path = `/message/sendMedia/${encodeURIComponent(this.instance)}`;
+
+    try {
+      logger.info(
+        {
+          number: payload.number,
+          mediaUrl: payload.mediaUrl,
+          captionLength: payload.caption.length,
+        },
+        'Enviando imagem via Evolution API',
+      );
+
+      const response = await this.http.post(path, {
+        number: payload.number,
+        mediatype: 'image',
+        mimetype: 'image/jpeg',
+        caption: payload.caption,
+        media: payload.mediaUrl,
+        fileName: payload.fileName ?? 'produto-shopee.jpg',
+        delay: payload.delay ?? env.EVOLUTION_SEND_DELAY_MS,
+      });
+
+      return this.extractResult(response.data);
+    } catch (error) {
+      throw this.wrapError(error, 'imagem');
     }
   }
 
@@ -87,6 +108,26 @@ export class EvolutionClient {
       return 'unreachable';
     }
   }
+
+  private extractResult(data: unknown): EvolutionSendTextResult {
+    const messageId =
+      (data as { key?: { id?: string } })?.key?.id ??
+      (data as { messageId?: string })?.messageId ??
+      null;
+    return { messageId, raw: data };
+  }
+
+  private wrapError(error: unknown, kind: string): EvolutionApiError {
+    const detail =
+      axios.isAxiosError(error) && error.response
+        ? `HTTP ${error.response.status}: ${JSON.stringify(error.response.data)}`
+        : error instanceof Error
+          ? error.message
+          : 'Erro desconhecido';
+
+    logger.error({ err: error }, `Falha ao enviar ${kind} Evolution`);
+    return new EvolutionApiError(`Falha Evolution API (${kind}): ${detail}`, error);
+  }
 }
 
 export class EvolutionMessageService {
@@ -95,12 +136,37 @@ export class EvolutionMessageService {
     private readonly groupJid: string = env.EVOLUTION_GROUP_JID,
   ) {}
 
-  async sendToGroup(text: string): Promise<EvolutionSendTextResult> {
+  /**
+   * Publica oferta no grupo: imagem + caption quando houver imageUrl;
+   * caso contrário, envia apenas texto.
+   */
+  async sendOfferToGroup(
+    caption: string,
+    imageUrl?: string | null,
+  ): Promise<EvolutionSendTextResult> {
+    if (imageUrl) {
+      try {
+        return await this.client.sendImage({
+          number: this.groupJid,
+          mediaUrl: imageUrl,
+          caption,
+        });
+      } catch (error) {
+        // Fallback: se a imagem falhar (URL inválida etc.), ainda envia o texto
+        logger.warn({ err: error, imageUrl }, 'Falha ao enviar imagem — fallback para texto');
+      }
+    }
+
     return this.client.sendText({
       number: this.groupJid,
-      text,
+      text: caption,
       linkPreview: true,
     });
+  }
+
+  /** @deprecated Preferir sendOfferToGroup */
+  async sendToGroup(text: string): Promise<EvolutionSendTextResult> {
+    return this.sendOfferToGroup(text);
   }
 
   async getStatus(): Promise<string> {

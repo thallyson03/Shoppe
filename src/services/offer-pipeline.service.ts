@@ -143,7 +143,10 @@ export class OfferPipelineService {
         });
 
       try {
-        const sendResult = await this.evolutionService.sendToGroup(messageText);
+        const sendResult = await this.evolutionService.sendOfferToGroup(
+          messageText,
+          row.imageUrl,
+        );
         await this.offerRepository.markAsPublished(row.id, messageText);
         await this.publishLogRepository.create({
           offerId: row.id,
@@ -181,7 +184,10 @@ export class OfferPipelineService {
     });
 
     try {
-      const sendResult = await this.evolutionService.sendToGroup(messageText);
+      const sendResult = await this.evolutionService.sendOfferToGroup(
+        messageText,
+        offer.imageUrl,
+      );
 
       await this.offerRepository.markAsPublished(saved.id, messageText);
       await this.publishLogRepository.create({
