@@ -23,6 +23,9 @@ export class MessageBuilderService {
       offer.sales != null && offer.sales > 0
         ? `🔥 ${offer.sales.toLocaleString('pt-BR')} vendidos`
         : null;
+    const shop = offer.shopName ? `🏪 ${truncate(offer.shopName, 40)}` : null;
+    const meta = [rating, sales, shop].filter(Boolean).join('\n');
+
     return [
       '🛍️ *OFERTA SHOPEE*',
       '',
@@ -34,7 +37,7 @@ export class MessageBuilderService {
       '',
       `🔗 ${offer.offerLink}`,
     ]
-      .filter((line) => line !== null)
+      .filter((line) => line !== null && line !== '')
       .join('\n');
   }
 }
