@@ -56,7 +56,7 @@ export class ShopeeGraphQLClient {
   constructor(
     private readonly appId: string = env.SHOPEE_APP_ID,
     private readonly secret: string = env.SHOPEE_SECRET,
-    private readonly baseUrl: string = env.SHOPEE_GRAPHQL_URL,
+    baseUrl: string = env.SHOPEE_GRAPHQL_URL,
   ) {
     this.http = axios.create({
       baseURL: baseUrl,

@@ -19,7 +19,7 @@ export class EvolutionClient {
   private readonly http: AxiosInstance;
 
   constructor(
-    private readonly baseUrl: string = env.EVOLUTION_API_URL,
+    baseUrl: string = env.EVOLUTION_API_URL,
     private readonly apiKey: string = env.EVOLUTION_API_KEY,
     private readonly instance: string = env.EVOLUTION_INSTANCE,
   ) {

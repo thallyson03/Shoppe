@@ -10,10 +10,7 @@
 
 import { createHash } from 'node:crypto';
 
-export interface ShopeeAuthHeader {
-  Authorization: string;
-  'Content-Type': string;
-}
+export type ShopeeAuthHeader = Record<string, string>;
 
 /**
  * Gera o header Authorization exigido pela Open API.
