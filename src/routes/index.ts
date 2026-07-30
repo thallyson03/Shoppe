@@ -27,6 +27,12 @@ const conditionSchema = z.object({
   value: z.coerce.number(),
 });
 
+/** Express 5 tipa params como string | string[] */
+function paramId(req: Request, name = 'id'): string {
+  const value = req.params[name];
+  return Array.isArray(value) ? value[0]! : value!;
+}
+
 export function createRoutes(cronJob: OffersCronJob): Router {
   const router = Router();
   const offerRepository = new OfferRepository();
@@ -188,7 +194,7 @@ export function createRoutes(cronJob: OffersCronJob): Router {
 
   router.get('/api/products/:id/prices', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const data = await dashboard.getProductPriceHistory(req.params.id!);
+      const data = await dashboard.getProductPriceHistory(paramId(req));
       if (!data) {
         res.status(404).json({ error: 'NOT_FOUND', message: 'Produto não encontrado' });
         return;
@@ -232,7 +238,7 @@ export function createRoutes(cronJob: OffersCronJob): Router {
           categories: z.array(z.string()).optional(),
         })
         .parse(req.body);
-      res.json(await dashboard.updateGroup(req.params.id!, body));
+      res.json(await dashboard.updateGroup(paramId(req), body));
     } catch (error) {
       next(error);
     }
@@ -300,7 +306,7 @@ export function createRoutes(cronJob: OffersCronJob): Router {
           priority: z.coerce.number().optional(),
         })
         .parse(req.body);
-      res.json(await dashboard.updateAutomation(req.params.id!, body));
+      res.json(await dashboard.updateAutomation(paramId(req), body));
     } catch (error) {
       next(error);
     }
