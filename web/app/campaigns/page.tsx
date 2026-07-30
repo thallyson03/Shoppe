@@ -1,4 +1,5 @@
-import { fetchCampaigns } from '@/lib/api';
+import { fetchCampaigns, fetchGroups } from '@/lib/api';
+import { CampaignForm } from '@/components/CampaignForm';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,14 +10,14 @@ export default async function CampaignsPage() {
     startsAt: string;
     endsAt: string;
     isActive: boolean;
-    commissionGoal: unknown;
     group?: { name: string } | null;
     channel?: { name: string; type: string } | null;
   }> = [];
+  let groups: Array<{ id: string; name: string }> = [];
   let error: string | null = null;
 
   try {
-    campaigns = await fetchCampaigns();
+    [campaigns, groups] = await Promise.all([fetchCampaigns(), fetchGroups()]);
   } catch (e) {
     error = e instanceof Error ? e.message : 'Erro';
   }
@@ -26,16 +27,15 @@ export default async function CampaignsPage() {
       <div className="page-header">
         <div>
           <h1>Campanhas</h1>
-          <p>Cadastro básico (esqueleto Fase 1)</p>
+          <p>Cadastro e acompanhamento de campanhas</p>
         </div>
       </div>
 
       {error && <div className="card">{error}</div>}
+      <CampaignForm groups={groups.map((g: { id: string; name: string }) => ({ id: g.id, name: g.name }))} />
 
       <div className="panel">
-        <div className="panel-header">
-          <h2>{campaigns.length} campanhas</h2>
-        </div>
+        <div className="panel-header"><h2>{campaigns.length} campanhas</h2></div>
         <table className="table">
           <thead>
             <tr>
@@ -51,23 +51,15 @@ export default async function CampaignsPage() {
             {campaigns.map((c) => (
               <tr key={c.id}>
                 <td>{c.name}</td>
-                <td>{c.channel ? `${c.channel.name} (${c.channel.type})` : '—'}</td>
+                <td>{c.channel ? `${c.channel.name}` : '—'}</td>
                 <td>{c.group?.name ?? '—'}</td>
-                <td>{new Date(c.startsAt).toLocaleDateString('pt-BR')}</td>
-                <td>{new Date(c.endsAt).toLocaleDateString('pt-BR')}</td>
-                <td>
-                  <span className={`badge ${c.isActive ? 'ok' : 'muted'}`}>
-                    {c.isActive ? 'ativa' : 'inativa'}
-                  </span>
-                </td>
+                <td>{new Date(c.startsAt).toLocaleString('pt-BR')}</td>
+                <td>{new Date(c.endsAt).toLocaleString('pt-BR')}</td>
+                <td><span className={`badge ${c.isActive ? 'ok' : 'muted'}`}>{c.isActive ? 'ativa' : 'inativa'}</span></td>
               </tr>
             ))}
             {campaigns.length === 0 && !error && (
-              <tr>
-                <td colSpan={6}>
-                  Nenhuma campanha. Crie via <code>POST /api/campaigns</code>.
-                </td>
-              </tr>
+              <tr><td colSpan={6}>Nenhuma campanha.</td></tr>
             )}
           </tbody>
         </table>

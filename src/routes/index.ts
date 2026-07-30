@@ -1,5 +1,5 @@
 /**
- * Rotas HTTP — health, status, trigger e Dashboard API (Fase 1).
+ * Rotas HTTP — health, status, trigger e Dashboard API (Fase 1 + 2).
  */
 
 import { Router, type Request, type Response, type NextFunction } from 'express';
@@ -12,6 +12,12 @@ import { DashboardService } from '../services/dashboard/dashboard.service.js';
 import type { OffersCronJob } from '../cron/offers.cron.js';
 import { AppError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
+
+const conditionSchema = z.object({
+  field: z.enum(['discount', 'rating', 'commission', 'sales', 'price']),
+  op: z.enum(['gt', 'gte', 'lt', 'lte', 'eq']),
+  value: z.coerce.number(),
+});
 
 export function createRoutes(cronJob: OffersCronJob): Router {
   const router = Router();
@@ -29,7 +35,7 @@ export function createRoutes(cronJob: OffersCronJob): Router {
         timestamp: new Date().toISOString(),
         database: 'up',
         evolution: evolutionState,
-        phase: 1,
+        phase: 2,
       });
     } catch (error) {
       next(error);
@@ -63,8 +69,6 @@ export function createRoutes(cronJob: OffersCronJob): Router {
     }
   });
 
-  // ----- Dashboard API (Fase 1) -----
-
   router.get('/api/dashboard', async (_req: Request, res: Response, next: NextFunction) => {
     try {
       res.json(await dashboard.getOverview());
@@ -86,8 +90,20 @@ export function createRoutes(cronJob: OffersCronJob): Router {
           limit: z.coerce.number().optional(),
         })
         .parse(req.query);
-
       res.json(await dashboard.listProducts(query));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get('/api/products/:id/prices', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const data = await dashboard.getProductPriceHistory(req.params.id!);
+      if (!data) {
+        res.status(404).json({ error: 'NOT_FOUND', message: 'Produto não encontrado' });
+        return;
+      }
+      res.json(data);
     } catch (error) {
       next(error);
     }
@@ -111,9 +127,22 @@ export function createRoutes(cronJob: OffersCronJob): Router {
           isActive: z.boolean().optional(),
         })
         .parse(req.body);
+      res.status(201).json(await dashboard.createGroup(body));
+    } catch (error) {
+      next(error);
+    }
+  });
 
-      const group = await dashboard.createGroup(body);
-      res.status(201).json(group);
+  router.patch('/api/groups/:id', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const body = z
+        .object({
+          isActive: z.boolean().optional(),
+          name: z.string().min(1).optional(),
+          categories: z.array(z.string()).optional(),
+        })
+        .parse(req.body);
+      res.json(await dashboard.updateGroup(req.params.id!, body));
     } catch (error) {
       next(error);
     }
@@ -139,9 +168,84 @@ export function createRoutes(cronJob: OffersCronJob): Router {
           channelId: z.string().optional(),
         })
         .parse(req.body);
+      res.status(201).json(await dashboard.createCampaign(body));
+    } catch (error) {
+      next(error);
+    }
+  });
 
-      const campaign = await dashboard.createCampaign(body);
-      res.status(201).json(campaign);
+  router.get('/api/automations', async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(await dashboard.listAutomations());
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post('/api/automations', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const body = z
+        .object({
+          name: z.string().min(1),
+          logic: z.enum(['and', 'or']).optional(),
+          conditions: z.array(conditionSchema).min(1),
+          action: z.enum(['send_whatsapp', 'skip', 'boost']).optional(),
+          groupId: z.string().optional(),
+          priority: z.coerce.number().optional(),
+          isActive: z.boolean().optional(),
+        })
+        .parse(req.body);
+      res.status(201).json(await dashboard.createAutomation(body));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.patch('/api/automations/:id', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const body = z
+        .object({
+          isActive: z.boolean().optional(),
+          name: z.string().min(1).optional(),
+          priority: z.coerce.number().optional(),
+        })
+        .parse(req.body);
+      res.json(await dashboard.updateAutomation(req.params.id!, body));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get('/api/schedule', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const query = z
+        .object({
+          from: z.string().optional(),
+          to: z.string().optional(),
+        })
+        .parse(req.query);
+      const from = query.from ? new Date(query.from) : undefined;
+      const to = query.to ? new Date(query.to) : undefined;
+      res.json(await dashboard.listScheduledPosts(from, to));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post('/api/schedule', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const body = z
+        .object({
+          title: z.string().min(1),
+          scheduledAt: z.string().min(1),
+          productId: z.string().optional(),
+          groupId: z.string().optional(),
+          messageText: z.string().optional(),
+          imageUrl: z.string().optional(),
+          offerLink: z.string().optional(),
+        })
+        .parse(req.body);
+      res.status(201).json(await dashboard.createScheduledPost(body));
     } catch (error) {
       next(error);
     }

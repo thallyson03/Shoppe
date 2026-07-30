@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { fetchProducts, formatBRL, formatPercent } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
@@ -22,28 +23,20 @@ export default async function ProductsPage({
       <div className="page-header">
         <div>
           <h1>Produtos</h1>
-          <p>Catálogo sincronizado da Open API Shopee</p>
+          <p>Catálogo sincronizado · clique em Histórico para ver preços</p>
         </div>
       </div>
 
       <form className="filters" method="get">
-        <input
-          name="q"
-          defaultValue={sp.q ?? ''}
-          placeholder="Buscar por nome…"
-        />
-        <button className="btn secondary" type="submit">
-          Filtrar
-        </button>
+        <input name="q" defaultValue={sp.q ?? ''} placeholder="Buscar por nome…" />
+        <button className="btn secondary" type="submit">Filtrar</button>
       </form>
 
       {error && <div className="card">{error}</div>}
 
       {data && (
         <div className="panel">
-          <div className="panel-header">
-            <h2>{data.total} produtos</h2>
-          </div>
+          <div className="panel-header"><h2>{data.total} produtos</h2></div>
           <table className="table">
             <thead>
               <tr>
@@ -53,7 +46,7 @@ export default async function ProductsPage({
                 <th>Comissão</th>
                 <th>Avaliação</th>
                 <th>Vendas</th>
-                <th>Link</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -79,9 +72,9 @@ export default async function ProductsPage({
                   <td>{p.ratingStar?.toFixed(1) ?? '—'}</td>
                   <td>{p.sales?.toLocaleString('pt-BR') ?? '—'}</td>
                   <td>
-                    <a href={p.offerLink} target="_blank" rel="noreferrer">
-                      Abrir
-                    </a>
+                    <Link href={`/products/${p.id}`}>Histórico</Link>
+                    {' · '}
+                    <a href={p.offerLink} target="_blank" rel="noreferrer">Link</a>
                   </td>
                 </tr>
               ))}

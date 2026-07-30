@@ -79,6 +79,11 @@ const API_BASE =
     ? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000'
     : '/backend';
 
+async function parseError(res: Response): Promise<string> {
+  const body = await res.json().catch(() => ({}));
+  return (body as { message?: string }).message ?? `HTTP ${res.status}`;
+}
+
 export async function fetchDashboard(): Promise<DashboardOverview> {
   const res = await fetch(`${API_BASE}/api/dashboard`, { cache: 'no-store' });
   if (!res.ok) throw new Error('Falha ao carregar dashboard');
@@ -94,6 +99,14 @@ export async function fetchProducts(params?: {
     cache: 'no-store',
   });
   if (!res.ok) throw new Error('Falha ao carregar produtos');
+  return res.json();
+}
+
+export async function fetchProductPrices(id: string) {
+  const res = await fetch(`${API_BASE}/api/products/${id}/prices`, {
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error(await parseError(res));
   return res.json();
 }
 
@@ -113,16 +126,97 @@ export async function createGroup(input: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.message ?? 'Falha ao criar grupo');
-  }
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json();
+}
+
+export async function updateGroup(id: string, data: { isActive?: boolean }) {
+  const res = await fetch(`${API_BASE}/api/groups/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
   return res.json();
 }
 
 export async function fetchCampaigns() {
   const res = await fetch(`${API_BASE}/api/campaigns`, { cache: 'no-store' });
   if (!res.ok) throw new Error('Falha ao carregar campanhas');
+  return res.json();
+}
+
+export async function createCampaign(input: {
+  name: string;
+  startsAt: string;
+  endsAt: string;
+  commissionGoal?: number;
+  groupId?: string;
+}) {
+  const res = await fetch(`${API_BASE}/api/campaigns`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json();
+}
+
+export async function fetchAutomations() {
+  const res = await fetch(`${API_BASE}/api/automations`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Falha ao carregar automações');
+  return res.json();
+}
+
+export async function createAutomation(input: {
+  name: string;
+  logic?: string;
+  conditions: Array<{ field: string; op: string; value: number }>;
+  action?: string;
+  priority?: number;
+}) {
+  const res = await fetch(`${API_BASE}/api/automations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json();
+}
+
+export async function updateAutomation(id: string, data: { isActive?: boolean }) {
+  const res = await fetch(`${API_BASE}/api/automations/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json();
+}
+
+export async function fetchSchedule(from?: string, to?: string) {
+  const qs = new URLSearchParams();
+  if (from) qs.set('from', from);
+  if (to) qs.set('to', to);
+  const res = await fetch(`${API_BASE}/api/schedule?${qs}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Falha ao carregar agenda');
+  return res.json();
+}
+
+export async function createScheduledPost(input: {
+  title: string;
+  scheduledAt: string;
+  productId?: string;
+  groupId?: string;
+  messageText?: string;
+  offerLink?: string;
+}) {
+  const res = await fetch(`${API_BASE}/api/schedule`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
   return res.json();
 }
 

@@ -16,6 +16,8 @@ import { EvolutionMessageService } from './evolution/index.js';
 import { MessageBuilderService, OfferFilterService } from './filters/index.js';
 import { PublishQuotaService } from './filters/publish-quota.service.js';
 import { ProductSyncService } from './catalog/product-sync.service.js';
+import { AutomationEngine } from './automations/automation.engine.js';
+import { ScheduleService } from './schedule/schedule.service.js';
 import { ShopeeOfferService } from './shopee/index.js';
 import { prisma } from '../database/prisma.js';
 import { sleep } from '../utils/format.js';
@@ -33,6 +35,8 @@ export class OfferPipelineService {
     private readonly jobRunRepository: JobRunRepository = new JobRunRepository(),
     private readonly quotaService: PublishQuotaService = new PublishQuotaService(),
     private readonly productSync: ProductSyncService = new ProductSyncService(),
+    private readonly automationEngine: AutomationEngine = new AutomationEngine(),
+    private readonly scheduleService: ScheduleService = new ScheduleService(),
   ) {}
 
   /**
@@ -60,16 +64,27 @@ export class OfferPipelineService {
         logger.info({ synced }, 'Catálogo sincronizado');
       }
 
-      // 2. Filtrar
+      // 2. Filtrar + automações (Fase 2)
       const filtered = this.filterService.filter(fetched);
-      result.filteredCount = filtered.length;
+      const { forced, skippedIds } = await this.automationEngine.selectForcedOffers(fetched);
+
+      const byId = new Map<string, NormalizedOffer>();
+      for (const o of filtered) {
+        if (!skippedIds.has(o.itemId)) byId.set(o.itemId, o);
+      }
+      for (const o of forced) {
+        if (!skippedIds.has(o.itemId)) byId.set(o.itemId, o);
+      }
+
+      const selected = [...byId.values()];
+      result.filteredCount = selected.length;
 
       // 3. Deduplicar + salvar (ficam unpublished até a cota liberar)
-      if (filtered.length > 0) {
+      if (selected.length > 0) {
         const existingIds = await this.offerRepository.findExistingItemIds(
-          filtered.map((o) => o.itemId),
+          selected.map((o) => o.itemId),
         );
-        const fresh = filtered.filter((o) => !existingIds.has(o.itemId));
+        const fresh = selected.filter((o) => !existingIds.has(o.itemId));
         result.newOffersCount = fresh.length;
 
         for (const offer of fresh) {
@@ -77,8 +92,9 @@ export class OfferPipelineService {
         }
       }
 
-      // 4. Publicar fila respeitando cota (1 por ciclo / 1 por minuto / 50 por dia)
+      // 4. Publicar fila + posts agendados
       result.publishedCount = await this.publishFromQueue();
+      result.publishedCount += await this.scheduleService.processDue();
 
       await this.jobRunRepository.finish(job.id, {
         status: 'success',

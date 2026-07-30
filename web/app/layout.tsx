@@ -4,7 +4,7 @@ import './globals.css';
 
 export const metadata = {
   title: 'Shoppe · Dashboard',
-  description: 'Plataforma de afiliados Shopee — Fase 1',
+  description: 'Plataforma de afiliados Shopee — Fase 2',
 };
 
 const links = [
@@ -12,6 +12,8 @@ const links = [
   { href: '/products', label: 'Produtos' },
   { href: '/groups', label: 'WhatsApp' },
   { href: '/campaigns', label: 'Campanhas' },
+  { href: '/automations', label: 'Automações' },
+  { href: '/calendar', label: 'Calendário' },
 ];
 
 export default function RootLayout({ children }: { children: ReactNode }) {
@@ -22,7 +24,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <aside className="sidebar">
             <div className="brand">
               <strong>Shoppe</strong>
-              <span>Fase 1 · Afiliados</span>
+              <span>Fase 2 · Afiliados</span>
             </div>
             <nav className="nav">
               {links.map((l) => (

@@ -245,4 +245,118 @@ export class DashboardService {
       },
     });
   }
+
+  async updateGroup(id: string, data: { isActive?: boolean; name?: string; categories?: string[] }) {
+    return prisma.whatsAppGroup.update({
+      where: { id },
+      data: {
+        isActive: data.isActive,
+        name: data.name,
+        categories: data.categories,
+      },
+    });
+  }
+
+  async getProductPriceHistory(productId: string) {
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      select: {
+        id: true,
+        name: true,
+        imageUrl: true,
+        priceMin: true,
+        offerLink: true,
+        pricePoints: {
+          orderBy: { recordedAt: 'asc' },
+          take: 60,
+        },
+      },
+    });
+    if (!product) return null;
+    return {
+      ...product,
+      priceMin: product.priceMin != null ? Number(product.priceMin) : null,
+      history: product.pricePoints.map((p) => ({
+        id: p.id,
+        priceMin: Number(p.priceMin),
+        priceMax: p.priceMax != null ? Number(p.priceMax) : null,
+        recordedAt: p.recordedAt,
+      })),
+    };
+  }
+
+  async listAutomations() {
+    return prisma.automationRule.findMany({
+      orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
+      include: { group: { select: { id: true, name: true } } },
+    });
+  }
+
+  async createAutomation(input: {
+    name: string;
+    logic?: string;
+    conditions: unknown;
+    action?: string;
+    groupId?: string;
+    priority?: number;
+    isActive?: boolean;
+  }) {
+    return prisma.automationRule.create({
+      data: {
+        name: input.name,
+        logic: input.logic ?? 'and',
+        conditions: input.conditions as object,
+        action: input.action ?? 'send_whatsapp',
+        groupId: input.groupId,
+        priority: input.priority ?? 0,
+        isActive: input.isActive ?? true,
+      },
+    });
+  }
+
+  async updateAutomation(
+    id: string,
+    data: { isActive?: boolean; name?: string; priority?: number },
+  ) {
+    return prisma.automationRule.update({ where: { id }, data });
+  }
+
+  async listScheduledPosts(from?: Date, to?: Date) {
+    return prisma.scheduledPost.findMany({
+      where: {
+        scheduledAt: {
+          gte: from,
+          lte: to,
+        },
+      },
+      orderBy: { scheduledAt: 'asc' },
+      include: {
+        product: { select: { id: true, name: true, imageUrl: true } },
+        group: { select: { id: true, name: true } },
+      },
+    });
+  }
+
+  async createScheduledPost(input: {
+    title: string;
+    scheduledAt: string;
+    productId?: string;
+    groupId?: string;
+    messageText?: string;
+    imageUrl?: string;
+    offerLink?: string;
+  }) {
+    return prisma.scheduledPost.create({
+      data: {
+        title: input.title,
+        scheduledAt: new Date(input.scheduledAt),
+        productId: input.productId,
+        groupId: input.groupId,
+        messageText: input.messageText,
+        imageUrl: input.imageUrl,
+        offerLink: input.offerLink,
+        status: 'pending',
+      },
+    });
+  }
 }

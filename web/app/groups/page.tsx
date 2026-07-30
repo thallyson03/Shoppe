@@ -1,5 +1,6 @@
 import { fetchGroups } from '@/lib/api';
 import { GroupForm } from '@/components/GroupForm';
+import { GroupToggle } from '@/components/GroupToggle';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,12 +25,11 @@ export default async function GroupsPage() {
       <div className="page-header">
         <div>
           <h1>WhatsApp</h1>
-          <p>Grupos ativos recebem os envios automáticos do worker</p>
+          <p>Grupos ativos recebem os envios automáticos</p>
         </div>
       </div>
 
       {error && <div className="card">{error}</div>}
-
       <GroupForm />
 
       <div className="panel">
@@ -49,21 +49,13 @@ export default async function GroupsPage() {
             {groups.map((g) => (
               <tr key={g.id}>
                 <td>{g.name}</td>
-                <td>
-                  <code>{g.groupJid}</code>
-                </td>
+                <td><code>{g.groupJid}</code></td>
                 <td>{g.categories?.join(', ') || '—'}</td>
-                <td>
-                  <span className={`badge ${g.isActive ? 'ok' : 'muted'}`}>
-                    {g.isActive ? 'ativo' : 'inativo'}
-                  </span>
-                </td>
+                <td><GroupToggle id={g.id} isActive={g.isActive} /></td>
               </tr>
             ))}
             {groups.length === 0 && !error && (
-              <tr>
-                <td colSpan={4}>Nenhum grupo ainda — cadastre acima.</td>
-              </tr>
+              <tr><td colSpan={4}>Nenhum grupo ainda — cadastre acima.</td></tr>
             )}
           </tbody>
         </table>
