@@ -52,7 +52,11 @@ Em **Environment Variables**, marque como **Runtime** e cole:
 | `FILTER_MIN_DISCOUNT_RATE` | `10` |
 | `FILTER_MIN_RATING` | `4.0` |
 | `FILTER_MIN_SALES` | `50` |
-| `FILTER_MAX_OFFERS_PER_RUN` | `3` |
+| `FILTER_MAX_OFFERS_PER_RUN` | `1` |
+| `FILTER_MAX_SAVE_PER_RUN` | `10` |
+| `PUBLISH_MAX_PER_DAY` | `50` |
+| `PUBLISH_MIN_INTERVAL_MS` | `60000` |
+| `PUBLISH_TIMEZONE` | `America/Sao_Paulo` |
 | `EVOLUTION_API_URL` | `https://evo-....qzz.io` |
 | `EVOLUTION_API_KEY` | sua API key |
 | `EVOLUTION_INSTANCE` | `evo-53v20` |
@@ -123,3 +127,32 @@ curl -X POST https://seu-dominio/offers/run
 ```
 
 O cron interno (`*/5 * * * *`) continua rodando dentro do container — não precisa de cron externo no Coolify.
+
+---
+
+## Dashboard Web (Next.js) — segundo app no Coolify
+
+1. **+ New** → **Application** → mesmo repo `https://github.com/thallyson03/Shoppe.git`
+2. Branch: `main`
+3. Build Pack: **Dockerfile**
+4. **Base Directory / Dockerfile location:** `web`
+5. Port: **3001**
+6. Domain: ex. `dashboard.seudominio.com`
+
+### Environment Variables (web)
+
+| Key | Build | Runtime | Valor |
+|-----|-------|---------|--------|
+| `NEXT_PUBLIC_API_URL` | ✅ | ✅ | URL **pública** da API (ex. `https://api.seudominio.com`) |
+| `PORT` | | ✅ | `3001` |
+| `NODE_ENV` | | ✅ | `production` |
+
+> `NEXT_PUBLIC_API_URL` precisa estar disponível no **build** (Coolify marca Build Variable).
+
+### Checklist implantação Fase 1
+
+1. Redeploy da **API** (migration `phase1_platform` + multi-grupo)
+2. Deploy do **web**
+3. Abrir dashboard → WhatsApp → cadastrar grupos
+4. `POST /offers/run` ou aguardar cron
+5. Confirmar envios em todos os grupos ativos

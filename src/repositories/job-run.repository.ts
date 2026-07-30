@@ -9,6 +9,7 @@ export class PublishLogRepository {
   async create(params: {
     offerId: string;
     groupJid: string;
+    groupId?: string | null;
     evolutionMsgId?: string | null;
     status?: string;
     errorMessage?: string | null;
@@ -17,6 +18,7 @@ export class PublishLogRepository {
       data: {
         offerId: params.offerId,
         groupJid: params.groupJid,
+        groupId: params.groupId ?? null,
         evolutionMsgId: params.evolutionMsgId ?? null,
         status: params.status ?? 'sent',
         errorMessage: params.errorMessage ?? null,

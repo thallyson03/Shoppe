@@ -133,32 +133,35 @@ export class EvolutionClient {
 export class EvolutionMessageService {
   constructor(
     private readonly client: EvolutionClient = new EvolutionClient(),
-    private readonly groupJid: string = env.EVOLUTION_GROUP_JID,
+    private readonly defaultGroupJid: string = env.EVOLUTION_GROUP_JID,
   ) {}
 
   /**
    * Publica oferta no grupo: imagem + caption quando houver imageUrl;
    * caso contrário, envia apenas texto.
+   * @param groupJid opcional — se omitido, usa EVOLUTION_GROUP_JID
    */
   async sendOfferToGroup(
     caption: string,
     imageUrl?: string | null,
+    groupJid?: string,
   ): Promise<EvolutionSendTextResult> {
+    const number = groupJid ?? this.defaultGroupJid;
+
     if (imageUrl) {
       try {
         return await this.client.sendImage({
-          number: this.groupJid,
+          number,
           mediaUrl: imageUrl,
           caption,
         });
       } catch (error) {
-        // Fallback: se a imagem falhar (URL inválida etc.), ainda envia o texto
-        logger.warn({ err: error, imageUrl }, 'Falha ao enviar imagem — fallback para texto');
+        logger.warn({ err: error, imageUrl, number }, 'Falha ao enviar imagem — fallback para texto');
       }
     }
 
     return this.client.sendText({
-      number: this.groupJid,
+      number,
       text: caption,
       linkPreview: true,
     });

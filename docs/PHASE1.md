@@ -43,6 +43,13 @@ Dashboard: `http://localhost:3001`
 | GET/POST | `/api/groups` | Grupos WhatsApp |
 | GET/POST | `/api/campaigns` | Campanhas |
 
+## Deploy Coolify (web)
+
+1. App separado, Base Directory = `web`, porta `3001`
+2. `NEXT_PUBLIC_API_URL` = URL pública da API (build + runtime)
+
+Guia completo: [`COOLIFY.md`](./COOLIFY.md)
+
 ## Placeholders (Fase 3)
 
 Comissão hoje/mês, cliques e conversões aparecem como `—` até integrar `conversionReport` da Shopee.

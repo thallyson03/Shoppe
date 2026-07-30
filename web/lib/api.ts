@@ -103,6 +103,23 @@ export async function fetchGroups() {
   return res.json();
 }
 
+export async function createGroup(input: {
+  name: string;
+  groupJid: string;
+  categories?: string[];
+}) {
+  const res = await fetch(`${API_BASE}/api/groups`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message ?? 'Falha ao criar grupo');
+  }
+  return res.json();
+}
+
 export async function fetchCampaigns() {
   const res = await fetch(`${API_BASE}/api/campaigns`, { cache: 'no-store' });
   if (!res.ok) throw new Error('Falha ao carregar campanhas');

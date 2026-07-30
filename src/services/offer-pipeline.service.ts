@@ -17,6 +17,7 @@ import { MessageBuilderService, OfferFilterService } from './filters/index.js';
 import { PublishQuotaService } from './filters/publish-quota.service.js';
 import { ProductSyncService } from './catalog/product-sync.service.js';
 import { ShopeeOfferService } from './shopee/index.js';
+import { prisma } from '../database/prisma.js';
 import { sleep } from '../utils/format.js';
 import { logger } from '../utils/logger.js';
 import { env } from '../config/env.js';
@@ -175,22 +176,55 @@ export class OfferPipelineService {
         });
 
       try {
-        const sendResult = await this.evolutionService.sendOfferToGroup(
-          messageText,
-          row.imageUrl,
-        );
+        const groups = await this.resolveTargetGroups();
+        let successCount = 0;
+
+        for (const group of groups) {
+          try {
+            const sendResult = await this.evolutionService.sendOfferToGroup(
+              messageText,
+              row.imageUrl,
+              group.groupJid,
+            );
+            await this.publishLogRepository.create({
+              offerId: row.id,
+              groupId: group.id,
+              groupJid: group.groupJid,
+              evolutionMsgId: sendResult.messageId,
+              status: 'sent',
+            });
+            successCount += 1;
+            if (env.EVOLUTION_SEND_DELAY_MS > 0 && groups.length > 1) {
+              await sleep(env.EVOLUTION_SEND_DELAY_MS);
+            }
+          } catch (groupError) {
+            const message =
+              groupError instanceof Error ? groupError.message : 'Erro no envio';
+            await this.publishLogRepository.create({
+              offerId: row.id,
+              groupId: group.id,
+              groupJid: group.groupJid,
+              status: 'error',
+              errorMessage: message,
+            });
+            logger.error(
+              { itemId: row.itemId, groupJid: group.groupJid, err: groupError },
+              'Falha ao publicar em grupo',
+            );
+          }
+        }
+
+        if (successCount === 0) {
+          throw new Error('Falha ao enviar para todos os grupos ativos');
+        }
+
         await this.offerRepository.markAsPublished(row.id, messageText);
-        await this.publishLogRepository.create({
-          offerId: row.id,
-          groupJid: env.EVOLUTION_GROUP_JID,
-          evolutionMsgId: sendResult.messageId,
-          status: 'sent',
-        });
         sent += 1;
         logger.info(
           {
             itemId: row.itemId,
             offerId: row.id,
+            groups: successCount,
             period: quota.period,
             publishedToday: quota.publishedToday + 1,
           },
@@ -210,6 +244,23 @@ export class OfferPipelineService {
     }
 
     return sent;
+  }
+
+  /**
+   * Grupos ativos no banco; se vazio, fallback para EVOLUTION_GROUP_JID do .env
+   */
+  private async resolveTargetGroups(): Promise<Array<{ id: string | null; groupJid: string }>> {
+    const groups = await prisma.whatsAppGroup.findMany({
+      where: { isActive: true },
+      select: { id: true, groupJid: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (groups.length > 0) {
+      return groups;
+    }
+
+    return [{ id: null, groupJid: env.EVOLUTION_GROUP_JID }];
   }
 
   private hashOffer(offer: NormalizedOffer): string {

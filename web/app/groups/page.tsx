@@ -1,4 +1,5 @@
 import { fetchGroups } from '@/lib/api';
+import { GroupForm } from '@/components/GroupForm';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,11 +24,13 @@ export default async function GroupsPage() {
       <div className="page-header">
         <div>
           <h1>WhatsApp</h1>
-          <p>Grupos cadastrados para envio automático</p>
+          <p>Grupos ativos recebem os envios automáticos do worker</p>
         </div>
       </div>
 
       {error && <div className="card">{error}</div>}
+
+      <GroupForm />
 
       <div className="panel">
         <div className="panel-header">
@@ -59,9 +62,7 @@ export default async function GroupsPage() {
             ))}
             {groups.length === 0 && !error && (
               <tr>
-                <td colSpan={4}>
-                  Nenhum grupo. Cadastre via <code>POST /api/groups</code> ou seed.
-                </td>
+                <td colSpan={4}>Nenhum grupo ainda — cadastre acima.</td>
               </tr>
             )}
           </tbody>
