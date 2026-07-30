@@ -74,10 +74,10 @@ export type ProductListResponse = {
   }>;
 };
 
+/** Cliente e SSR: URL pública da API; no browser, fallback /backend (proxy Next). */
 const API_BASE =
-  typeof window === 'undefined'
-    ? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000'
-    : '/backend';
+  (process.env.NEXT_PUBLIC_API_URL ?? '').replace(/\/$/, '') ||
+  (typeof window === 'undefined' ? 'http://localhost:3000' : '/backend');
 
 function authHeaders(): HeadersInit {
   if (typeof window === 'undefined') return {};

@@ -3,7 +3,9 @@
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 
-const API_BASE = '/backend';
+/** Prefere URL pública da API (build); fallback same-origin /backend */
+const API_BASE =
+  (process.env.NEXT_PUBLIC_API_URL ?? '').replace(/\/$/, '') || '/backend';
 
 export function LoginFormClient() {
   const router = useRouter();
