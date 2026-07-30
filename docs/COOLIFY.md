@@ -73,6 +73,9 @@ Em **Environment Variables**, marque como **Runtime** e cole:
 > **Importante:** `DATABASE_URL` deve terminar com `?schema=public` se ainda não tiver.
 
 > Fase 2: após o deploy, `prisma migrate deploy` cria `users` / `post_templates`. Detalhes em `docs/PHASE2.md`.
+> Fase 3: migration `phase3_conversions` + KPIs reais. Detalhes em `docs/PHASE3.md`.
+>
+> Vars Fase 3 (API, Runtime): `CONVERSION_SYNC_ENABLED`, `CONVERSION_SYNC_DAYS`, `AI_MESSAGE_ENABLED`, `OPENROUTER_API_KEY` (opcional).
 
 ### 4. Deploy
 

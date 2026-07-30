@@ -24,9 +24,9 @@ export function createApp(): AppContext {
   app.get('/', (_req, res) => {
     res.json({
       name: 'shopee-offers',
-      version: '2.0.0',
-      phase: 2,
-      description: 'Plataforma afiliados Shopee → WhatsApp (Fase 2)',
+      version: '3.0.0',
+      phase: 3,
+      description: 'Plataforma afiliados Shopee → WhatsApp (Fase 3)',
       endpoints: {
         health: 'GET /health',
         status: 'GET /status',
@@ -35,6 +35,8 @@ export function createApp(): AppContext {
         users: 'GET|POST /api/users',
         templates: 'GET|POST /api/templates',
         dashboard: 'GET /api/dashboard',
+        analytics: 'GET /api/analytics',
+        conversionsSync: 'POST /api/conversions/sync',
         products: 'GET /api/products',
         productPrices: 'GET /api/products/:id/prices',
         groups: 'GET|POST|PATCH /api/groups',

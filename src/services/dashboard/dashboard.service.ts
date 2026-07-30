@@ -1,5 +1,5 @@
 /**
- * Métricas e listagens do Dashboard (Fase 1).
+ * Métricas e listagens do Dashboard (Fase 1–3).
  */
 
 import { prisma } from '../../database/prisma.js';
@@ -13,6 +13,31 @@ function startOfDay(d = new Date()): Date {
 
 function startOfMonth(d = new Date()): Date {
   return new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0);
+}
+
+async function sumCommission(from: Date, to?: Date): Promise<number> {
+  const agg = await prisma.conversion.aggregate({
+    where: {
+      purchaseTime: {
+        gte: from,
+        ...(to ? { lte: to } : {}),
+      },
+    },
+    _sum: { totalCommission: true },
+    _count: { _all: true },
+  });
+  return Number(agg._sum.totalCommission ?? 0);
+}
+
+async function countConversions(from: Date, to?: Date): Promise<number> {
+  return prisma.conversion.count({
+    where: {
+      purchaseTime: {
+        gte: from,
+        ...(to ? { lte: to } : {}),
+      },
+    },
+  });
 }
 
 export class DashboardService {
@@ -35,6 +60,10 @@ export class DashboardService {
       recentSends,
       topProducts,
       recentJobs,
+      commissionToday,
+      commissionMonth,
+      conversionsToday,
+      conversionsMonth,
     ] = await Promise.all([
       prisma.product.count(),
       prisma.product.count({ where: { lastSyncedAt: { gte: today } } }),
@@ -78,15 +107,19 @@ export class DashboardService {
         },
       }),
       prisma.jobRun.findMany({ take: 8, orderBy: { startedAt: 'desc' } }),
+      sumCommission(today),
+      sumCommission(month),
+      countConversions(today),
+      countConversions(month),
     ]);
 
-    // Placeholders Fase 1 (conversões reais entram na Fase 3 via conversionReport)
     return {
       kpis: {
-        commissionToday: null as number | null,
-        commissionMonth: null as number | null,
+        commissionToday,
+        commissionMonth,
         clicks: null as number | null,
-        conversions: null as number | null,
+        conversions: conversionsMonth,
+        conversionsToday,
         productsSentToday: sentToday,
         productsSentMonth: sentMonth,
         productsTotal,
@@ -94,7 +127,8 @@ export class DashboardService {
         pendingQueue,
         activeCampaigns,
         activeGroups,
-        note: 'Comissão/cliques/conversões serão preenchidos na Fase 3 (conversionReport Shopee).',
+        note:
+          'Comissão/conversões via conversionReport Shopee. Cliques não são expostos pela API afiliado.',
       },
       quota,
       recentSends: recentSends.map((s) => ({
@@ -116,6 +150,76 @@ export class DashboardService {
         ratingStar: p.ratingStar != null ? Number(p.ratingStar) : null,
       })),
       recentJobs,
+    };
+  }
+
+  async getAnalytics(from?: Date, to?: Date) {
+    const end = to ?? new Date();
+    const start = from ?? new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const conversions = await prisma.conversion.findMany({
+      where: { purchaseTime: { gte: start, lte: end } },
+      include: { items: true },
+      orderBy: { purchaseTime: 'asc' },
+    });
+
+    const byDay = new Map<string, { commission: number; conversions: number }>();
+    const byStatus = new Map<string, number>();
+    const byProduct = new Map<
+      string,
+      { itemId: string; name: string; commission: number; qty: number }
+    >();
+
+    for (const c of conversions) {
+      const day = c.purchaseTime.toISOString().slice(0, 10);
+      const prev = byDay.get(day) ?? { commission: 0, conversions: 0 };
+      prev.commission += Number(c.totalCommission);
+      prev.conversions += 1;
+      byDay.set(day, prev);
+
+      const status = c.orderStatus ?? 'UNKNOWN';
+      byStatus.set(status, (byStatus.get(status) ?? 0) + 1);
+
+      for (const item of c.items) {
+        const key = item.itemId ?? item.itemName ?? 'unknown';
+        const row = byProduct.get(key) ?? {
+          itemId: item.itemId ?? key,
+          name: item.itemName ?? key,
+          commission: 0,
+          qty: 0,
+        };
+        row.commission += Number(item.itemTotalCommission ?? 0);
+        row.qty += item.qty;
+        byProduct.set(key, row);
+      }
+    }
+
+    const topProducts = [...byProduct.values()]
+      .sort((a, b) => b.commission - a.commission)
+      .slice(0, 15);
+
+    return {
+      from: start,
+      to: end,
+      totals: {
+        commission: conversions.reduce((s, c) => s + Number(c.totalCommission), 0),
+        conversions: conversions.length,
+      },
+      daily: [...byDay.entries()].map(([date, v]) => ({ date, ...v })),
+      byStatus: [...byStatus.entries()].map(([status, count]) => ({ status, count })),
+      topProducts,
+      recent: conversions
+        .slice()
+        .reverse()
+        .slice(0, 30)
+        .map((c) => ({
+          id: c.id,
+          conversionId: c.conversionId,
+          purchaseTime: c.purchaseTime,
+          totalCommission: Number(c.totalCommission),
+          orderStatus: c.orderStatus,
+          itemCount: c.items.length,
+        })),
     };
   }
 

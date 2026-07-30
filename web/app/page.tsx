@@ -73,23 +73,23 @@ export default async function DashboardPage() {
       <div className="grid kpis">
         <div className="card">
           <h3>Comissão hoje</h3>
-          <div className="value">—</div>
-          <div className="hint">Fase 3 · conversionReport</div>
+          <div className="value">{formatBRL(kpis.commissionToday)}</div>
+          <div className="hint">conversionReport</div>
         </div>
         <div className="card">
           <h3>Comissão do mês</h3>
-          <div className="value">—</div>
-          <div className="hint">Fase 3 · conversionReport</div>
+          <div className="value">{formatBRL(kpis.commissionMonth)}</div>
+          <div className="hint">conversionReport</div>
         </div>
         <div className="card">
           <h3>Cliques</h3>
           <div className="value">—</div>
-          <div className="hint">Fase 3</div>
+          <div className="hint">API Shopee não expõe</div>
         </div>
         <div className="card">
-          <h3>Conversões</h3>
-          <div className="value">—</div>
-          <div className="hint">Fase 3</div>
+          <h3>Conversões (mês)</h3>
+          <div className="value">{kpis.conversions ?? 0}</div>
+          <div className="hint">Hoje: {kpis.conversionsToday ?? 0}</div>
         </div>
       </div>
 

@@ -4,6 +4,7 @@ export type DashboardOverview = {
     commissionMonth: number | null;
     clicks: number | null;
     conversions: number | null;
+    conversionsToday?: number | null;
     productsSentToday: number;
     productsSentMonth: number;
     productsTotal: number;
@@ -268,6 +269,27 @@ export async function fetchTemplates(channel?: string) {
     headers: await authHeaders(),
   });
   if (!res.ok) throw new Error('Falha ao carregar templates');
+  return res.json();
+}
+
+export async function fetchAnalytics(from?: string, to?: string) {
+  const qs = new URLSearchParams();
+  if (from) qs.set('from', from);
+  if (to) qs.set('to', to);
+  const res = await fetch(`${API_BASE}/api/analytics?${qs}`, {
+    cache: 'no-store',
+    headers: await authHeaders(),
+  });
+  if (!res.ok) throw new Error('Falha ao carregar analytics');
+  return res.json();
+}
+
+export async function syncConversions() {
+  const res = await fetch(`${API_BASE}/api/conversions/sync`, {
+    method: 'POST',
+    headers: { ...(await authHeaders()) },
+  });
+  if (!res.ok) throw new Error(await parseError(res));
   return res.json();
 }
 

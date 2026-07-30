@@ -1,5 +1,5 @@
 /**
- * Monta mensagens WhatsApp a partir de template (biblioteca) ou fallback.
+ * Monta mensagens WhatsApp a partir de template (+ IA opcional).
  */
 
 import type { NormalizedOffer } from '../../models/offer.model.js';
@@ -8,15 +8,21 @@ import {
   formatDiscountPercent,
   truncate,
 } from '../../utils/format.js';
+import { OpenRouterService } from '../ai/openrouter.service.js';
 import { TemplateService } from '../templates/template.service.js';
 
 export class MessageBuilderService {
-  constructor(private readonly templates: TemplateService = new TemplateService()) {}
+  constructor(
+    private readonly templates: TemplateService = new TemplateService(),
+    private readonly ai: OpenRouterService = new OpenRouterService(),
+  ) {}
 
-  /** Usa template default do canal (WhatsApp) quando existir */
+  /** Usa template default do canal; opcionalmente reescreve via OpenRouter */
   async buildAsync(offer: NormalizedOffer, channel = 'whatsapp'): Promise<string> {
     const body = await this.templates.getDefaultBody(channel);
-    return this.templates.render(body, offer);
+    const rendered = this.templates.render(body, offer);
+    const rewritten = await this.ai.rewriteCaption(rendered, offer);
+    return rewritten ?? rendered;
   }
 
   /** Fallback síncrono (agenda / casos sem await) */

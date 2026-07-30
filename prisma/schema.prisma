@@ -302,3 +302,51 @@ model PostTemplate {
   @@index([channel, isActive])
   @@map("post_templates")
 }
+
+// -----------------------------------------------------------------------------
+// Fase 3 — Conversões / analytics afiliado
+// -----------------------------------------------------------------------------
+
+model Conversion {
+  id               String    @id @default(cuid())
+  conversionId     String    @unique @map("conversion_id")
+  purchaseTime     DateTime  @map("purchase_time")
+  clickTime        DateTime? @map("click_time")
+  totalCommission  Decimal   @map("total_commission") @db.Decimal(14, 4)
+  sellerCommission Decimal?  @map("seller_commission") @db.Decimal(14, 4)
+  shopeeCommission Decimal?  @map("shopee_commission") @db.Decimal(14, 4)
+  buyerType        String?   @map("buyer_type")
+  device           String?
+  utmContent       String?   @map("utm_content")
+  orderStatus      String?   @map("order_status")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  items ConversionItem[]
+
+  @@index([purchaseTime])
+  @@index([orderStatus])
+  @@map("conversions")
+}
+
+model ConversionItem {
+  id                  String    @id @default(cuid())
+  conversionDbId      String    @map("conversion_db_id")
+  orderId             String    @map("order_id")
+  itemId              String?   @map("item_id")
+  itemName            String?   @map("item_name")
+  shopName            String?   @map("shop_name")
+  itemPrice           Decimal?  @map("item_price") @db.Decimal(12, 2)
+  qty                 Int       @default(1)
+  itemTotalCommission Decimal?  @map("item_total_commission") @db.Decimal(14, 4)
+  orderStatus         String?   @map("order_status")
+  completeTime        DateTime? @map("complete_time")
+  createdAt           DateTime  @default(now()) @map("created_at")
+
+  conversion Conversion @relation(fields: [conversionDbId], references: [id], onDelete: Cascade)
+
+  @@index([conversionDbId])
+  @@index([itemId])
+  @@index([orderId])
+  @@map("conversion_items")
+}

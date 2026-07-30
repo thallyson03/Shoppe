@@ -62,8 +62,6 @@ ENTÃO `send_whatsapp`
 - Telegram / Instagram com envio real (hoje: templates + canal no schema)
 - UI de gestão de usuários (API já existe: `GET/POST /api/users`)
 
-## Fase 3 (depois)
+## Fase 3
 
-- IA (OpenRouter)
-- conversionReport (comissões reais)
-- Analytics avançado
+Ver `docs/PHASE3.md` — conversionReport, analytics e OpenRouter.

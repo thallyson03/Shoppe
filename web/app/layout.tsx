@@ -4,7 +4,7 @@ import './globals.css';
 
 export const metadata = {
   title: 'Shoppe · Dashboard',
-  description: 'Plataforma de afiliados Shopee — Fase 2',
+  description: 'Plataforma de afiliados Shopee — Fase 3',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

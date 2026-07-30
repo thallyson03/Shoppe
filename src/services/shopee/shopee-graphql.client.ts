@@ -1,14 +1,17 @@
 /**
  * Cliente GraphQL da Shopee Affiliate Open API.
  *
- * Responsabilidades (SRP):
- * - Autenticar com HMAC-SHA256
- * - Buscar productOfferV2
- * - Normalizar a resposta para o domínio interno
+ * - productOfferV2 (ofertas)
+ * - conversionReport (Fase 3)
  */
 
 import axios, { type AxiosInstance } from 'axios';
 import { env } from '../../config/env.js';
+import type {
+  FetchConversionReportParams,
+  NormalizedConversion,
+  ShopeeConversionNode,
+} from '../../models/conversion.model.js';
 import type { NormalizedOffer, ShopeeProductOffer } from '../../models/offer.model.js';
 import { ShopeeApiError } from '../../utils/errors.js';
 import { toIdString, toNumber } from '../../utils/format.js';
@@ -31,6 +34,17 @@ interface ProductOfferV2Data {
   };
 }
 
+interface ConversionReportData {
+  conversionReport: {
+    nodes: ShopeeConversionNode[];
+    pageInfo: {
+      limit: number;
+      hasNextPage: boolean;
+      scrollId?: string | null;
+    };
+  };
+}
+
 export interface FetchProductOffersParams {
   keyword?: string;
   listType?: number;
@@ -39,11 +53,21 @@ export interface FetchProductOffersParams {
   limit?: number;
 }
 
+function parseMoney(value: string | number | null | undefined): number | null {
+  if (value == null || value === '') return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  const n = Number(String(value).replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+}
+
+function parseUnix(value: number | string | null | undefined): Date | null {
+  if (value == null || value === '') return null;
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return new Date(n > 1e12 ? n : n * 1000);
+}
+
 export class ShopeeAuthService {
-  /**
-   * Valida credenciais fazendo uma query mínima.
-   * Útil no health check / boot.
-   */
   async validateCredentials(client: ShopeeGraphQLClient): Promise<boolean> {
     const offers = await client.fetchProductOffers({ page: 1, limit: 1 });
     return Array.isArray(offers);
@@ -64,9 +88,6 @@ export class ShopeeGraphQLClient {
     });
   }
 
-  /**
-   * Executa uma query/mutation GraphQL autenticada.
-   */
   async execute<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
     const body: Record<string, unknown> = { query };
     if (variables && Object.keys(variables).length > 0) {
@@ -107,9 +128,6 @@ export class ShopeeGraphQLClient {
     }
   }
 
-  /**
-   * Busca ofertas de produtos (productOfferV2).
-   */
   async fetchProductOffers(params: FetchProductOffersParams = {}): Promise<NormalizedOffer[]> {
     const keyword = params.keyword ?? env.SHOPEE_KEYWORD;
     const listType = params.listType ?? env.SHOPEE_LIST_TYPE;
@@ -117,7 +135,6 @@ export class ShopeeGraphQLClient {
     const page = params.page ?? 1;
     const limit = params.limit ?? env.SHOPEE_PAGE_LIMIT;
 
-    // Query inline (API Shopee espera query string; variables nem sempre aceitas em todos os campos)
     const keywordArg = keyword ? `keyword: ${JSON.stringify(keyword)},` : '';
 
     const query = `{
@@ -168,7 +185,87 @@ export class ShopeeGraphQLClient {
     return nodes.map((node) => this.normalize(node)).filter((o) => o.itemId && o.offerLink);
   }
 
-  /** Normaliza tipos heterogêneos da API para o domínio interno */
+  async fetchConversionReportPage(
+    params: FetchConversionReportParams,
+  ): Promise<{ nodes: NormalizedConversion[]; hasNextPage: boolean; scrollId: string | null }> {
+    const limit = params.limit ?? 50;
+    const status = params.orderStatus ?? 'ALL';
+    const scrollArg = params.scrollId ? `scrollId: ${JSON.stringify(params.scrollId)},` : '';
+
+    const query = `{
+      conversionReport(
+        purchaseTimeStart: ${params.purchaseTimeStart},
+        purchaseTimeEnd: ${params.purchaseTimeEnd},
+        orderStatus: ${status},
+        limit: ${limit},
+        ${scrollArg}
+      ) {
+        nodes {
+          purchaseTime
+          clickTime
+          conversionId
+          totalCommission
+          sellerCommission
+          shopeeCommissionCapped
+          buyerType
+          device
+          utmContent
+          orders {
+            orderId
+            orderStatus
+            items {
+              itemId
+              itemName
+              shopName
+              itemPrice
+              qty
+              itemTotalCommission
+              completeTime
+              attributionType
+            }
+          }
+        }
+        pageInfo {
+          limit
+          hasNextPage
+          scrollId
+        }
+      }
+    }`;
+
+    const data = await this.execute<ConversionReportData>(query);
+    const report = data.conversionReport;
+    const nodes = (report?.nodes ?? []).map((n) => this.normalizeConversion(n));
+
+    return {
+      nodes,
+      hasNextPage: Boolean(report?.pageInfo?.hasNextPage),
+      scrollId: report?.pageInfo?.scrollId ?? null,
+    };
+  }
+
+  async fetchAllConversions(
+    params: Omit<FetchConversionReportParams, 'scrollId'>,
+    maxPages = 20,
+  ): Promise<NormalizedConversion[]> {
+    const all: NormalizedConversion[] = [];
+    let scrollId: string | undefined;
+    let page = 0;
+
+    while (page < maxPages) {
+      page += 1;
+      const result = await this.fetchConversionReportPage({
+        ...params,
+        ...(scrollId ? { scrollId } : {}),
+      });
+      all.push(...result.nodes);
+      if (!result.hasNextPage || !result.scrollId) break;
+      scrollId = result.scrollId;
+    }
+
+    return all;
+  }
+
   private normalize(raw: ShopeeProductOffer): NormalizedOffer {
     return {
       itemId: toIdString(raw.itemId),
@@ -188,9 +285,45 @@ export class ShopeeGraphQLClient {
       shopName: raw.shopName ?? null,
     };
   }
+
+  private normalizeConversion(raw: ShopeeConversionNode): NormalizedConversion {
+    const items: NormalizedConversion['items'] = [];
+    let orderStatus: string | null = null;
+
+    for (const order of raw.orders ?? []) {
+      if (!orderStatus && order.orderStatus) orderStatus = order.orderStatus;
+      const orderId = toIdString(order.orderId ?? 'unknown');
+      for (const item of order.items ?? []) {
+        items.push({
+          orderId,
+          itemId: item.itemId != null ? toIdString(item.itemId) : null,
+          itemName: item.itemName ?? null,
+          shopName: item.shopName ?? null,
+          itemPrice: parseMoney(item.itemPrice ?? null),
+          qty: item.qty ?? 1,
+          itemTotalCommission: parseMoney(item.itemTotalCommission ?? null),
+          orderStatus: order.orderStatus ?? null,
+          completeTime: parseUnix(item.completeTime ?? null),
+        });
+      }
+    }
+
+    return {
+      conversionId: toIdString(raw.conversionId),
+      purchaseTime: parseUnix(raw.purchaseTime) ?? new Date(0),
+      clickTime: parseUnix(raw.clickTime ?? null),
+      totalCommission: parseMoney(raw.totalCommission) ?? 0,
+      sellerCommission: parseMoney(raw.sellerCommission ?? null),
+      shopeeCommission: parseMoney(raw.shopeeCommissionCapped ?? null),
+      buyerType: raw.buyerType ?? null,
+      device: raw.device ?? null,
+      utmContent: raw.utmContent ?? null,
+      orderStatus,
+      items,
+    };
+  }
 }
 
-/** Service de alto nível para orquestrar buscas de ofertas */
 export class ShopeeOfferService {
   constructor(private readonly client: ShopeeGraphQLClient = new ShopeeGraphQLClient()) {}
 

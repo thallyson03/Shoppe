@@ -18,6 +18,7 @@ import { PublishQuotaService } from './filters/publish-quota.service.js';
 import { ProductSyncService } from './catalog/product-sync.service.js';
 import { AutomationEngine } from './automations/automation.engine.js';
 import { ScheduleService } from './schedule/schedule.service.js';
+import { ConversionSyncService } from './conversions/conversion-sync.service.js';
 import { ShopeeOfferService } from './shopee/index.js';
 import { prisma } from '../database/prisma.js';
 import { sleep } from '../utils/format.js';
@@ -25,6 +26,8 @@ import { logger } from '../utils/logger.js';
 import { env } from '../config/env.js';
 
 export class OfferPipelineService {
+  private runCounter = 0;
+
   constructor(
     private readonly shopeeService: ShopeeOfferService = new ShopeeOfferService(),
     private readonly filterService: OfferFilterService = new OfferFilterService(),
@@ -37,6 +40,7 @@ export class OfferPipelineService {
     private readonly productSync: ProductSyncService = new ProductSyncService(),
     private readonly automationEngine: AutomationEngine = new AutomationEngine(),
     private readonly scheduleService: ScheduleService = new ScheduleService(),
+    private readonly conversionSync: ConversionSyncService = new ConversionSyncService(),
   ) {}
 
   /**
@@ -96,6 +100,9 @@ export class OfferPipelineService {
       result.publishedCount = await this.publishFromQueue();
       result.publishedCount += await this.scheduleService.processDue();
 
+      // 5. Sync conversionReport (Fase 3) — periódico, não bloqueia o ciclo
+      await this.maybeSyncConversions();
+
       await this.jobRunRepository.finish(job.id, {
         status: 'success',
         ...result,
@@ -127,6 +134,19 @@ export class OfferPipelineService {
       messageText,
       contentHash,
     });
+  }
+
+  private async maybeSyncConversions(): Promise<void> {
+    if (!env.CONVERSION_SYNC_ENABLED) return;
+    this.runCounter += 1;
+    if (this.runCounter % env.CONVERSION_SYNC_EVERY_N_RUNS !== 0 && this.runCounter !== 1) {
+      return;
+    }
+    try {
+      await this.conversionSync.syncRecent();
+    } catch (error) {
+      logger.warn({ err: error }, 'Sync conversionReport falhou (pipeline segue)');
+    }
   }
 
   /**

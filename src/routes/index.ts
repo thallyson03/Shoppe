@@ -69,7 +69,7 @@ export function createRoutes(cronJob: OffersCronJob): Router {
         timestamp: new Date().toISOString(),
         database: 'up',
         evolution: evolutionState,
-        phase: 2,
+        phase: 3,
       });
     } catch (error) {
       next(error);
@@ -190,6 +190,39 @@ export function createRoutes(cronJob: OffersCronJob): Router {
       next(error);
     }
   });
+
+  router.get('/api/analytics', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const query = z
+        .object({
+          from: z.string().optional(),
+          to: z.string().optional(),
+        })
+        .parse(req.query);
+      const from = query.from ? new Date(query.from) : undefined;
+      const to = query.to ? new Date(query.to) : undefined;
+      res.json(await dashboard.getAnalytics(from, to));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post(
+    '/api/conversions/sync',
+    requireAuth,
+    requireWriteAccess,
+    async (_req: Request, res: Response, next: NextFunction) => {
+      try {
+        const { ConversionSyncService } = await import(
+          '../services/conversions/conversion-sync.service.js'
+        );
+        const sync = new ConversionSyncService();
+        res.json(await sync.syncRecent());
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
 
   router.get('/api/products', async (req: Request, res: Response, next: NextFunction) => {
     try {

@@ -7,6 +7,7 @@ import { AuthNav } from '@/components/AuthNav';
 
 const links = [
   { href: '/', label: 'Dashboard' },
+  { href: '/analytics', label: 'Analytics' },
   { href: '/products', label: 'Produtos' },
   { href: '/groups', label: 'WhatsApp' },
   { href: '/campaigns', label: 'Campanhas' },
@@ -28,7 +29,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <aside className="sidebar">
         <div className="brand">
           <strong>Shoppe</strong>
-          <span>Fase 2 · Afiliados</span>
+          <span>Fase 3 · Afiliados</span>
         </div>
         <nav className="nav">
           {links.map((l) => (

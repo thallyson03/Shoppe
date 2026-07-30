@@ -75,6 +75,25 @@ const envSchema = z.object({
   SEED_ADMIN_EMAIL: z.string().email().default('admin@shoppe.local'),
   SEED_ADMIN_PASSWORD: z.string().min(6).default('admin123'),
   SEED_ADMIN_NAME: z.string().default('Administrador'),
+
+  /** Fase 3 — sync conversionReport a cada N ciclos do cron */
+  CONVERSION_SYNC_ENABLED: z
+    .string()
+    .optional()
+    .default('true')
+    .transform((v) => v === 'true' || v === '1'),
+  CONVERSION_SYNC_DAYS: z.coerce.number().int().min(1).max(90).default(30),
+  /** Sync a cada N execuções do cron (ex.: 5 min * 6 = ~30 min) */
+  CONVERSION_SYNC_EVERY_N_RUNS: z.coerce.number().int().min(1).max(288).default(6),
+
+  /** Fase 3 — OpenRouter (opcional) */
+  AI_MESSAGE_ENABLED: z
+    .string()
+    .optional()
+    .default('false')
+    .transform((v) => v === 'true' || v === '1'),
+  OPENROUTER_API_KEY: z.string().optional().default(''),
+  OPENROUTER_MODEL: z.string().default('openai/gpt-4o-mini'),
 });
 
 export type AppConfig = z.infer<typeof envSchema>;
