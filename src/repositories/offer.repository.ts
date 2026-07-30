@@ -10,6 +10,7 @@ import type { NormalizedOffer } from '../models/offer.model.js';
 export interface CreateOfferInput extends NormalizedOffer {
   messageText?: string | null;
   contentHash?: string | null;
+  productId?: string | null;
 }
 
 export class OfferRepository {
@@ -37,6 +38,7 @@ export class OfferRepository {
     return prisma.offer.create({
       data: {
         itemId: data.itemId,
+        productId: data.productId ?? null,
         shopId: data.shopId,
         productName: data.productName,
         productLink: data.productLink,

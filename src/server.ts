@@ -5,16 +5,19 @@
 import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { connectDatabase, disconnectDatabase } from './database/prisma.js';
+import { seedPhase1Defaults } from './database/seed-phase1.js';
 import { logger } from './utils/logger.js';
 
 async function bootstrap(): Promise<void> {
   logger.info(
-    { env: env.NODE_ENV, port: env.PORT, cron: env.CRON_SCHEDULE },
+    { env: env.NODE_ENV, port: env.PORT, cron: env.CRON_SCHEDULE, phase: 1 },
     'Iniciando shopee-offers',
   );
 
   await connectDatabase();
   logger.info('PostgreSQL conectado');
+
+  await seedPhase1Defaults();
 
   const { app, cronJob } = createApp();
 

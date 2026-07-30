@@ -24,12 +24,17 @@ export function createApp(): AppContext {
   app.get('/', (_req, res) => {
     res.json({
       name: 'shopee-offers',
-      version: '1.0.0',
-      description: 'Monitor de ofertas Shopee → WhatsApp (Evolution API)',
+      version: '1.1.0',
+      phase: 1,
+      description: 'Plataforma afiliados Shopee → WhatsApp (Fase 1)',
       endpoints: {
         health: 'GET /health',
         status: 'GET /status',
         run: 'POST /offers/run',
+        dashboard: 'GET /api/dashboard',
+        products: 'GET /api/products',
+        groups: 'GET|POST /api/groups',
+        campaigns: 'GET|POST /api/campaigns',
       },
     });
   });

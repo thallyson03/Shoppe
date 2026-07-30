@@ -15,6 +15,7 @@ import { OfferRepository } from '../repositories/offer.repository.js';
 import { EvolutionMessageService } from './evolution/index.js';
 import { MessageBuilderService, OfferFilterService } from './filters/index.js';
 import { PublishQuotaService } from './filters/publish-quota.service.js';
+import { ProductSyncService } from './catalog/product-sync.service.js';
 import { ShopeeOfferService } from './shopee/index.js';
 import { sleep } from '../utils/format.js';
 import { logger } from '../utils/logger.js';
@@ -30,6 +31,7 @@ export class OfferPipelineService {
     private readonly publishLogRepository: PublishLogRepository = new PublishLogRepository(),
     private readonly jobRunRepository: JobRunRepository = new JobRunRepository(),
     private readonly quotaService: PublishQuotaService = new PublishQuotaService(),
+    private readonly productSync: ProductSyncService = new ProductSyncService(),
   ) {}
 
   /**
@@ -50,6 +52,12 @@ export class OfferPipelineService {
       // 1. Buscar
       const fetched = await this.shopeeService.getOffers();
       result.fetchedCount = fetched.length;
+
+      // 1b. Sincroniza catálogo (Product/Shop/PriceHistory) — Fase 1
+      if (fetched.length > 0) {
+        const synced = await this.productSync.syncMany(fetched);
+        logger.info({ synced }, 'Catálogo sincronizado');
+      }
 
       // 2. Filtrar
       const filtered = this.filterService.filter(fetched);
@@ -94,9 +102,11 @@ export class OfferPipelineService {
   private async persistOffer(offer: NormalizedOffer): Promise<void> {
     const messageText = this.messageBuilder.build(offer);
     const contentHash = this.hashOffer(offer);
+    const productId = await this.productSync.upsertFromOffer(offer);
 
     await this.offerRepository.create({
       ...offer,
+      productId,
       messageText,
       contentHash,
     });

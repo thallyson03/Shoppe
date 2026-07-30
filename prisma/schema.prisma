@@ -1,5 +1,5 @@
 // =============================================================================
-// Prisma Schema — Shopee Offers Monitor
+// Prisma Schema — Fase 1 (plataforma afiliados Shopee)
 // =============================================================================
 
 generator client {
@@ -11,11 +11,139 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// Oferta de produto capturada da Open API Shopee Affiliate
+// -----------------------------------------------------------------------------
+// Catálogo
+// -----------------------------------------------------------------------------
+
+model Shop {
+  id        String   @id @default(cuid())
+  shopId    String   @unique @map("shop_id")
+  name      String
+  imageUrl  String?  @map("image_url")
+  rating    Decimal? @db.Decimal(3, 2)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  products Product[]
+
+  @@map("shops")
+}
+
+model Product {
+  id                   String    @id @default(cuid())
+  itemId               String    @unique @map("item_id")
+  shopId               String?   @map("shop_db_id")
+  externalShopId       String?   @map("external_shop_id")
+  name                 String
+  imageUrl             String?   @map("image_url")
+  productLink          String?   @map("product_link")
+  offerLink            String    @map("offer_link")
+  priceMin             Decimal?  @map("price_min") @db.Decimal(12, 2)
+  priceMax             Decimal?  @map("price_max") @db.Decimal(12, 2)
+  priceDiscountRate    Int?      @map("price_discount_rate")
+  sales                Int?      @default(0)
+  ratingStar           Decimal?  @map("rating_star") @db.Decimal(3, 2)
+  commissionRate       Decimal?  @map("commission_rate") @db.Decimal(8, 4)
+  sellerCommissionRate Decimal?  @map("seller_commission_rate") @db.Decimal(8, 4)
+  shopeeCommissionRate Decimal?  @map("shopee_commission_rate") @db.Decimal(8, 4)
+  category             String?
+  lastSyncedAt         DateTime? @map("last_synced_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  shop        Shop?         @relation(fields: [shopId], references: [id], onDelete: SetNull)
+  offers      Offer[]
+  pricePoints PriceHistory[]
+
+  @@index([commissionRate])
+  @@index([sales])
+  @@index([ratingStar])
+  @@index([priceDiscountRate])
+  @@index([createdAt])
+  @@map("products")
+}
+
+model PriceHistory {
+  id        String   @id @default(cuid())
+  productId String   @map("product_id")
+  priceMin  Decimal  @map("price_min") @db.Decimal(12, 2)
+  priceMax  Decimal? @map("price_max") @db.Decimal(12, 2)
+  recordedAt DateTime @default(now()) @map("recorded_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, recordedAt])
+  @@map("price_history")
+}
+
+// -----------------------------------------------------------------------------
+// Canais e grupos WhatsApp
+// -----------------------------------------------------------------------------
+
+model Channel {
+  id          String   @id @default(cuid())
+  name        String
+  type        String   // whatsapp | telegram | instagram | facebook
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  groups    WhatsAppGroup[]
+  campaigns Campaign[]
+
+  @@unique([name, type])
+  @@map("channels")
+}
+
+model WhatsAppGroup {
+  id          String   @id @default(cuid())
+  name        String
+  groupJid    String   @unique @map("group_jid")
+  categories  String[] @default([])
+  isActive    Boolean  @default(true) @map("is_active")
+  channelId   String?  @map("channel_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  channel     Channel?     @relation(fields: [channelId], references: [id], onDelete: SetNull)
+  publishLogs PublishLog[]
+  campaigns   Campaign[]
+
+  @@index([isActive])
+  @@map("whatsapp_groups")
+}
+
+// -----------------------------------------------------------------------------
+// Campanhas (esqueleto Fase 1)
+// -----------------------------------------------------------------------------
+
+model Campaign {
+  id             String    @id @default(cuid())
+  name           String
+  channelId      String?   @map("channel_id")
+  groupId        String?   @map("group_id")
+  startsAt       DateTime  @map("starts_at")
+  endsAt         DateTime  @map("ends_at")
+  commissionGoal Decimal?  @map("commission_goal") @db.Decimal(12, 2)
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  channel Channel?      @relation(fields: [channelId], references: [id], onDelete: SetNull)
+  group   WhatsAppGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+
+  @@index([isActive, startsAt, endsAt])
+  @@map("campaigns")
+}
+
+// -----------------------------------------------------------------------------
+// Ofertas / fila de publicação (legado + Fase 1)
+// -----------------------------------------------------------------------------
+
 model Offer {
   id                   String    @id @default(cuid())
-  /// ID único do item na Shopee (chave de deduplicação)
   itemId               String    @unique @map("item_id")
+  productId            String?   @map("product_id")
   shopId               String?   @map("shop_id")
   productName          String    @map("product_name")
   productLink          String?   @map("product_link")
@@ -30,41 +158,41 @@ model Offer {
   sellerCommissionRate Decimal?  @map("seller_commission_rate") @db.Decimal(8, 4)
   shopeeCommissionRate Decimal?  @map("shopee_commission_rate") @db.Decimal(8, 4)
   shopName             String?   @map("shop_name")
-  /// Mensagem formatada enviada ao WhatsApp
   messageText          String?   @map("message_text") @db.Text
-  /// Indica se já foi publicada no grupo
   published            Boolean   @default(false)
   publishedAt          DateTime? @map("published_at")
-  /// Hash/fingerprint para reforçar deduplicação
   contentHash          String?   @map("content_hash")
   createdAt            DateTime  @default(now()) @map("created_at")
   updatedAt            DateTime  @updatedAt @map("updated_at")
 
+  product     Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
   publishLogs PublishLog[]
 
   @@index([published, createdAt])
   @@index([createdAt])
+  @@index([productId])
   @@map("offers")
 }
 
-/// Histórico de envios para o WhatsApp (auditoria)
 model PublishLog {
   id             String   @id @default(cuid())
   offerId        String   @map("offer_id")
+  groupId        String?  @map("group_id")
   groupJid       String   @map("group_jid")
   evolutionMsgId String?  @map("evolution_msg_id")
   status         String   @default("sent")
   errorMessage   String?  @map("error_message") @db.Text
   createdAt      DateTime @default(now()) @map("created_at")
 
-  offer Offer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  offer Offer          @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  group WhatsAppGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
 
   @@index([offerId])
+  @@index([groupId])
   @@index([createdAt])
   @@map("publish_logs")
 }
 
-/// Registro de cada execução do cron (observabilidade)
 model JobRun {
   id             String    @id @default(cuid())
   startedAt      DateTime  @default(now()) @map("started_at")

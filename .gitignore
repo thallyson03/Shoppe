@@ -11,3 +11,6 @@ Thumbs.db
 *.tsbuildinfo
 prisma/*.db
 prisma/*.db-journal
+web/.next/
+web/node_modules/
+web/out/

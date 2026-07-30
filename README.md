@@ -160,7 +160,15 @@ A imagem aplica `prisma migrate deploy` antes de iniciar o processo.
 
 Passo a passo completo: [`docs/COOLIFY.md`](./docs/COOLIFY.md).
 
-Resumo (Opção A — recomendada):
+## Fase 1 (plataforma)
+
+Documentação: [`docs/PHASE1.md`](./docs/PHASE1.md).
+
+- Schema: products, shops, groups, campaigns, price_history  
+- APIs: `/api/dashboard`, `/api/products`, `/api/groups`, `/api/campaigns`  
+- Dashboard Next.js em `web/` (`npm run dev` na porta 3001)
+
+Resumo Coolify (Opção A — recomendada):
 
 1. Criar **PostgreSQL** no Coolify e copiar a Internal URL  
 2. Criar **Application** → repo `thallyson03/Shoppe` → Build Pack **Dockerfile** → porta **3000**  
