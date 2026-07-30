@@ -261,3 +261,44 @@ model JobRun {
   @@index([startedAt])
   @@map("job_runs")
 }
+
+// -----------------------------------------------------------------------------
+// Fase 2 — Multiusuário e biblioteca de posts
+// -----------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  /// admin | manager | operator | influencer
+  role         String   @default("operator")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  templates PostTemplate[]
+
+  @@index([role, isActive])
+  @@map("users")
+}
+
+/// Modelos de mensagem reutilizáveis (biblioteca de posts)
+model PostTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  /// whatsapp | telegram | instagram | facebook | twitter
+  channel     String   @default("whatsapp")
+  /// Placeholders: {{name}} {{price}} {{discount}} {{rating}} {{sales}} {{link}} {{shop}}
+  body        String   @db.Text
+  isDefault   Boolean  @default(false) @map("is_default")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdById String?  @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([channel, isActive])
+  @@map("post_templates")
+}

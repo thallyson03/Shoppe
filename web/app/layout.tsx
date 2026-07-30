@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import { AuthNav } from '@/components/AuthNav';
 import './globals.css';
 
 export const metadata = {
@@ -14,6 +15,7 @@ const links = [
   { href: '/campaigns', label: 'Campanhas' },
   { href: '/automations', label: 'Automações' },
   { href: '/calendar', label: 'Calendário' },
+  { href: '/templates', label: 'Templates' },
 ];
 
 export default function RootLayout({ children }: { children: ReactNode }) {
@@ -33,6 +35,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 </Link>
               ))}
             </nav>
+            <AuthNav />
           </aside>
           <main className="main">{children}</main>
         </div>

@@ -1,5 +1,5 @@
 /**
- * Monta mensagens WhatsApp legíveis e atrativas a partir de uma oferta.
+ * Monta mensagens WhatsApp a partir de template (biblioteca) ou fallback.
  */
 
 import type { NormalizedOffer } from '../../models/offer.model.js';
@@ -8,11 +8,18 @@ import {
   formatDiscountPercent,
   truncate,
 } from '../../utils/format.js';
+import { TemplateService } from '../templates/template.service.js';
 
 export class MessageBuilderService {
-  /**
-   * Template padrão de oferta para grupos de promoção.
-   */
+  constructor(private readonly templates: TemplateService = new TemplateService()) {}
+
+  /** Usa template default do canal (WhatsApp) quando existir */
+  async buildAsync(offer: NormalizedOffer, channel = 'whatsapp'): Promise<string> {
+    const body = await this.templates.getDefaultBody(channel);
+    return this.templates.render(body, offer);
+  }
+
+  /** Fallback síncrono (agenda / casos sem await) */
   build(offer: NormalizedOffer): string {
     const name = truncate(offer.productName, 90);
     const price = formatBRL(offer.priceMin);

@@ -79,6 +79,12 @@ const API_BASE =
     ? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000'
     : '/backend';
 
+function authHeaders(): HeadersInit {
+  if (typeof window === 'undefined') return {};
+  const token = localStorage.getItem('shoppe_token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 async function parseError(res: Response): Promise<string> {
   const body = await res.json().catch(() => ({}));
   return (body as { message?: string }).message ?? `HTTP ${res.status}`;
@@ -123,7 +129,7 @@ export async function createGroup(input: {
 }) {
   const res = await fetch(`${API_BASE}/api/groups`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(input),
   });
   if (!res.ok) throw new Error(await parseError(res));
@@ -133,7 +139,7 @@ export async function createGroup(input: {
 export async function updateGroup(id: string, data: { isActive?: boolean }) {
   const res = await fetch(`${API_BASE}/api/groups/${id}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error(await parseError(res));
@@ -155,7 +161,7 @@ export async function createCampaign(input: {
 }) {
   const res = await fetch(`${API_BASE}/api/campaigns`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(input),
   });
   if (!res.ok) throw new Error(await parseError(res));
@@ -177,7 +183,7 @@ export async function createAutomation(input: {
 }) {
   const res = await fetch(`${API_BASE}/api/automations`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(input),
   });
   if (!res.ok) throw new Error(await parseError(res));
@@ -187,7 +193,7 @@ export async function createAutomation(input: {
 export async function updateAutomation(id: string, data: { isActive?: boolean }) {
   const res = await fetch(`${API_BASE}/api/automations/${id}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error(await parseError(res));
@@ -213,7 +219,7 @@ export async function createScheduledPost(input: {
 }) {
   const res = await fetch(`${API_BASE}/api/schedule`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(input),
   });
   if (!res.ok) throw new Error(await parseError(res));
@@ -221,8 +227,33 @@ export async function createScheduledPost(input: {
 }
 
 export async function triggerPipeline() {
-  const res = await fetch(`${API_BASE}/offers/run`, { method: 'POST' });
+  const res = await fetch(`${API_BASE}/offers/run`, {
+    method: 'POST',
+    headers: { ...authHeaders() },
+  });
   if (!res.ok) throw new Error('Falha ao disparar pipeline');
+  return res.json();
+}
+
+export async function fetchTemplates(channel?: string) {
+  const qs = channel ? `?channel=${encodeURIComponent(channel)}` : '';
+  const res = await fetch(`${API_BASE}/api/templates${qs}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Falha ao carregar templates');
+  return res.json();
+}
+
+export async function createTemplate(input: {
+  name: string;
+  channel?: string;
+  body: string;
+  isDefault?: boolean;
+}) {
+  const res = await fetch(`${API_BASE}/api/templates`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
   return res.json();
 }
 

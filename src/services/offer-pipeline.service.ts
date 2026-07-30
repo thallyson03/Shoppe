@@ -117,7 +117,7 @@ export class OfferPipelineService {
 
   /** Salva oferta sem enviar (fila de publicação) */
   private async persistOffer(offer: NormalizedOffer): Promise<void> {
-    const messageText = this.messageBuilder.build(offer);
+    const messageText = await this.messageBuilder.buildAsync(offer);
     const contentHash = this.hashOffer(offer);
     const productId = await this.productSync.upsertFromOffer(offer);
 

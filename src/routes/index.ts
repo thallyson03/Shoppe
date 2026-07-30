@@ -9,7 +9,15 @@ import { JobRunRepository } from '../repositories/job-run.repository.js';
 import { OfferRepository } from '../repositories/offer.repository.js';
 import { EvolutionMessageService } from '../services/evolution/index.js';
 import { DashboardService } from '../services/dashboard/dashboard.service.js';
+import { AuthService } from '../services/auth/auth.service.js';
+import { TemplateService } from '../services/templates/template.service.js';
 import type { OffersCronJob } from '../cron/offers.cron.js';
+import {
+  requireAuth,
+  requireWriteAccess,
+  requireAdmin,
+  type AuthedRequest,
+} from '../middleware/auth.middleware.js';
 import { AppError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 
@@ -25,6 +33,8 @@ export function createRoutes(cronJob: OffersCronJob): Router {
   const jobRunRepository = new JobRunRepository();
   const evolutionService = new EvolutionMessageService();
   const dashboard = new DashboardService();
+  const authService = new AuthService();
+  const templateService = new TemplateService();
 
   router.get('/health', async (_req: Request, res: Response, next: NextFunction) => {
     try {
@@ -59,15 +69,95 @@ export function createRoutes(cronJob: OffersCronJob): Router {
     }
   });
 
-  router.post('/offers/run', async (_req: Request, res: Response, next: NextFunction) => {
+  router.post(
+    '/offers/run',
+    requireAuth,
+    requireWriteAccess,
+    async (_req: Request, res: Response, next: NextFunction) => {
+      try {
+        logger.info('Trigger manual do pipeline via HTTP');
+        const result = await cronJob.runNow();
+        res.status(202).json({ message: 'Pipeline executado', result });
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  // Auth
+  router.post('/api/auth/login', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      logger.info('Trigger manual do pipeline via HTTP');
-      const result = await cronJob.runNow();
-      res.status(202).json({ message: 'Pipeline executado', result });
+      const body = z
+        .object({
+          email: z.string().email(),
+          password: z.string().min(1),
+        })
+        .parse(req.body);
+      res.json(await authService.login(body.email, body.password));
     } catch (error) {
       next(error);
     }
   });
+
+  router.get('/api/users', requireAuth, requireAdmin, async (_req, res, next) => {
+    try {
+      res.json(await authService.listUsers());
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post('/api/users', requireAuth, requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const body = z
+        .object({
+          name: z.string().min(1),
+          email: z.string().email(),
+          password: z.string().min(6),
+          role: z.enum(['admin', 'manager', 'operator', 'influencer']).optional(),
+        })
+        .parse(req.body);
+      const user = await authService.createUser(body);
+      res.status(201).json(user);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Templates
+  router.get('/api/templates', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const channel = typeof req.query.channel === 'string' ? req.query.channel : undefined;
+      res.json(await templateService.list(channel));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post(
+    '/api/templates',
+    requireAuth,
+    requireWriteAccess,
+    async (req: AuthedRequest, res: Response, next: NextFunction) => {
+      try {
+        const body = z
+          .object({
+            name: z.string().min(1),
+            channel: z.enum(['whatsapp', 'telegram', 'instagram', 'facebook', 'twitter']).optional(),
+            body: z.string().min(1),
+            isDefault: z.boolean().optional(),
+          })
+          .parse(req.body);
+        const tpl = await templateService.create({
+          ...body,
+          createdById: req.user?.id,
+        });
+        res.status(201).json(tpl);
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
 
   router.get('/api/dashboard', async (_req: Request, res: Response, next: NextFunction) => {
     try {
@@ -117,7 +207,7 @@ export function createRoutes(cronJob: OffersCronJob): Router {
     }
   });
 
-  router.post('/api/groups', async (req: Request, res: Response, next: NextFunction) => {
+  router.post('/api/groups', requireAuth, requireWriteAccess, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const body = z
         .object({
@@ -133,7 +223,7 @@ export function createRoutes(cronJob: OffersCronJob): Router {
     }
   });
 
-  router.patch('/api/groups/:id', async (req: Request, res: Response, next: NextFunction) => {
+  router.patch('/api/groups/:id', requireAuth, requireWriteAccess, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const body = z
         .object({
@@ -156,7 +246,7 @@ export function createRoutes(cronJob: OffersCronJob): Router {
     }
   });
 
-  router.post('/api/campaigns', async (req: Request, res: Response, next: NextFunction) => {
+  router.post('/api/campaigns', requireAuth, requireWriteAccess, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const body = z
         .object({
@@ -182,7 +272,7 @@ export function createRoutes(cronJob: OffersCronJob): Router {
     }
   });
 
-  router.post('/api/automations', async (req: Request, res: Response, next: NextFunction) => {
+  router.post('/api/automations', requireAuth, requireWriteAccess, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const body = z
         .object({
@@ -201,7 +291,7 @@ export function createRoutes(cronJob: OffersCronJob): Router {
     }
   });
 
-  router.patch('/api/automations/:id', async (req: Request, res: Response, next: NextFunction) => {
+  router.patch('/api/automations/:id', requireAuth, requireWriteAccess, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const body = z
         .object({
@@ -232,7 +322,7 @@ export function createRoutes(cronJob: OffersCronJob): Router {
     }
   });
 
-  router.post('/api/schedule', async (req: Request, res: Response, next: NextFunction) => {
+  router.post('/api/schedule', requireAuth, requireWriteAccess, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const body = z
         .object({

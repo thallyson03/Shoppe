@@ -64,6 +64,17 @@ const envSchema = z.object({
     .optional()
     .default('true')
     .transform((v) => v === 'true' || v === '1'),
+
+  /** Auth Fase 2 — quando true, mutações exigem Bearer JWT */
+  AUTH_ENABLED: z
+    .string()
+    .optional()
+    .default('false')
+    .transform((v) => v === 'true' || v === '1'),
+  JWT_SECRET: z.string().min(16).default('change-me-shopee-jwt-secret'),
+  SEED_ADMIN_EMAIL: z.string().email().default('admin@shoppe.local'),
+  SEED_ADMIN_PASSWORD: z.string().min(6).default('admin123'),
+  SEED_ADMIN_NAME: z.string().default('Administrador'),
 });
 
 export type AppConfig = z.infer<typeof envSchema>;

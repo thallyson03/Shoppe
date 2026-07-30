@@ -64,8 +64,15 @@ Em **Environment Variables**, marque como **Runtime** e cole:
 | `EVOLUTION_SEND_DELAY_MS` | `2000` |
 | `CRON_SCHEDULE` | `*/5 * * * *` |
 | `CRON_RUN_ON_START` | `true` |
+| `AUTH_ENABLED` | `false` *(use `true` para exigir JWT nas mutações)* |
+| `JWT_SECRET` | segredo longo (≥16 chars) |
+| `SEED_ADMIN_EMAIL` | `admin@shoppe.local` |
+| `SEED_ADMIN_PASSWORD` | troque em produção |
+| `SEED_ADMIN_NAME` | `Administrador` |
 
 > **Importante:** `DATABASE_URL` deve terminar com `?schema=public` se ainda não tiver.
+
+> Fase 2: após o deploy, `prisma migrate deploy` cria `users` / `post_templates`. Detalhes em `docs/PHASE2.md`.
 
 ### 4. Deploy
 
