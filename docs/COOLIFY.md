@@ -64,7 +64,7 @@ Em **Environment Variables**, marque como **Runtime** e cole:
 | `EVOLUTION_SEND_DELAY_MS` | `2000` |
 | `CRON_SCHEDULE` | `*/5 * * * *` |
 | `CRON_RUN_ON_START` | `true` |
-| `AUTH_ENABLED` | `false` *(use `true` para exigir JWT nas mutações)* |
+| `AUTH_ENABLED` | `true` *(JWT obrigatório no dashboard/API; `false` só p/ debug)* |
 | `JWT_SECRET` | segredo longo (≥16 chars) |
 | `SEED_ADMIN_EMAIL` | `admin@shoppe.local` |
 | `SEED_ADMIN_PASSWORD` | troque em produção |

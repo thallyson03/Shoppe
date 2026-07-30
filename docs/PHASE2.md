@@ -10,10 +10,10 @@
 - Formulário de campanhas + toggle de grupos
 
 ### Multiusuário + templates
-- Tabelas `users` e `post_templates`
+- Com `AUTH_ENABLED=true` (padrão), **todas** as rotas `/api/*` e `POST /offers/run` exigem Bearer JWT (`requireAuth` + papéis em escrita)
+- Web: middleware redireciona para `/login` sem cookie; menu só aparece após login
 - Login JWT (`POST /api/auth/login`) — scrypt + HMAC, sem deps extras
 - Papéis: `admin`, `manager`, `operator`, `influencer`
-- Com `AUTH_ENABLED=true`, mutações exigem Bearer token (`requireAuth` + `requireWriteAccess` / `requireAdmin`)
 - Biblioteca de templates com placeholders: `{{name}}` `{{price}}` `{{discount}}` `{{rating}}` `{{sales}}` `{{shop}}` `{{link}}`
 - Envio WhatsApp usa o template **default** do canal
 - Seed: admin + templates WhatsApp / Instagram / Telegram
@@ -42,7 +42,7 @@ npx prisma migrate deploy
 ## Env (Coolify)
 
 ```
-AUTH_ENABLED=false          # true para exigir JWT nas mutações
+AUTH_ENABLED=true              # padrão: exige login
 JWT_SECRET=<segredo-longo>
 SEED_ADMIN_EMAIL=admin@shoppe.local
 SEED_ADMIN_PASSWORD=<trocar>

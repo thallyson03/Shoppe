@@ -1,8 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+
+const TOKEN_COOKIE = 'shoppe_token';
+
+export function clearSession() {
+  localStorage.removeItem('shoppe_token');
+  localStorage.removeItem('shoppe_user');
+  document.cookie = `${TOKEN_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
+}
 
 export function AuthNav() {
   const router = useRouter();
@@ -24,19 +31,13 @@ export function AuthNav() {
   }, [pathname]);
 
   function logout() {
-    localStorage.removeItem('shoppe_token');
-    localStorage.removeItem('shoppe_user');
+    clearSession();
     setLabel(null);
     router.push('/login');
+    router.refresh();
   }
 
-  if (!label) {
-    return (
-      <Link href="/login" style={{ marginTop: 12, fontSize: 13, opacity: 0.85 }}>
-        Entrar
-      </Link>
-    );
-  }
+  if (!label) return null;
 
   return (
     <div style={{ marginTop: 16, fontSize: 12, opacity: 0.85 }}>

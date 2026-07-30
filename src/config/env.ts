@@ -65,11 +65,11 @@ const envSchema = z.object({
     .default('true')
     .transform((v) => v === 'true' || v === '1'),
 
-  /** Auth Fase 2 — quando true, mutações exigem Bearer JWT */
+  /** Auth Fase 2 — true = JWT obrigatório em /api e mutações */
   AUTH_ENABLED: z
     .string()
     .optional()
-    .default('false')
+    .default('true')
     .transform((v) => v === 'true' || v === '1'),
   JWT_SECRET: z.string().min(16).default('change-me-shopee-jwt-secret'),
   SEED_ADMIN_EMAIL: z.string().email().default('admin@shoppe.local'),

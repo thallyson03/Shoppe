@@ -42,6 +42,24 @@ export function createRoutes(cronJob: OffersCronJob): Router {
   const authService = new AuthService();
   const templateService = new TemplateService();
 
+  /** Libera health/status/login; o resto de /api e /offers/run exige JWT se AUTH_ENABLED */
+  router.use((req: Request, res: Response, next: NextFunction) => {
+    const path = req.path;
+    if (path === '/health' || path === '/status' || path === '/') {
+      next();
+      return;
+    }
+    if (path === '/api/auth/login') {
+      next();
+      return;
+    }
+    if (path.startsWith('/api') || path === '/offers/run') {
+      requireAuth(req, res, next);
+      return;
+    }
+    next();
+  });
+
   router.get('/health', async (_req: Request, res: Response, next: NextFunction) => {
     try {
       await prisma.$queryRaw`SELECT 1`;

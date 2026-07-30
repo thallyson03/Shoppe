@@ -79,10 +79,19 @@ const API_BASE =
   (process.env.NEXT_PUBLIC_API_URL ?? '').replace(/\/$/, '') ||
   (typeof window === 'undefined' ? 'http://localhost:3000' : '/backend');
 
-function authHeaders(): HeadersInit {
-  if (typeof window === 'undefined') return {};
-  const token = localStorage.getItem('shoppe_token');
-  return token ? { Authorization: `Bearer ${token}` } : {};
+async function authHeaders(): Promise<HeadersInit> {
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('shoppe_token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
+  try {
+    const { cookies } = await import('next/headers');
+    const token = (await cookies()).get('shoppe_token')?.value;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
 }
 
 async function parseError(res: Response): Promise<string> {
@@ -91,7 +100,10 @@ async function parseError(res: Response): Promise<string> {
 }
 
 export async function fetchDashboard(): Promise<DashboardOverview> {
-  const res = await fetch(`${API_BASE}/api/dashboard`, { cache: 'no-store' });
+  const res = await fetch(`${API_BASE}/api/dashboard`, {
+    cache: 'no-store',
+    headers: await authHeaders(),
+  });
   if (!res.ok) throw new Error('Falha ao carregar dashboard');
   return res.json();
 }
@@ -103,6 +115,7 @@ export async function fetchProducts(params?: {
   if (params?.q) qs.set('q', params.q);
   const res = await fetch(`${API_BASE}/api/products?${qs.toString()}`, {
     cache: 'no-store',
+    headers: await authHeaders(),
   });
   if (!res.ok) throw new Error('Falha ao carregar produtos');
   return res.json();
@@ -111,13 +124,17 @@ export async function fetchProducts(params?: {
 export async function fetchProductPrices(id: string) {
   const res = await fetch(`${API_BASE}/api/products/${id}/prices`, {
     cache: 'no-store',
+    headers: await authHeaders(),
   });
   if (!res.ok) throw new Error(await parseError(res));
   return res.json();
 }
 
 export async function fetchGroups() {
-  const res = await fetch(`${API_BASE}/api/groups`, { cache: 'no-store' });
+  const res = await fetch(`${API_BASE}/api/groups`, {
+    cache: 'no-store',
+    headers: await authHeaders(),
+  });
   if (!res.ok) throw new Error('Falha ao carregar grupos');
   return res.json();
 }
@@ -129,7 +146,7 @@ export async function createGroup(input: {
 }) {
   const res = await fetch(`${API_BASE}/api/groups`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
     body: JSON.stringify(input),
   });
   if (!res.ok) throw new Error(await parseError(res));
@@ -139,7 +156,7 @@ export async function createGroup(input: {
 export async function updateGroup(id: string, data: { isActive?: boolean }) {
   const res = await fetch(`${API_BASE}/api/groups/${id}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error(await parseError(res));
@@ -147,7 +164,10 @@ export async function updateGroup(id: string, data: { isActive?: boolean }) {
 }
 
 export async function fetchCampaigns() {
-  const res = await fetch(`${API_BASE}/api/campaigns`, { cache: 'no-store' });
+  const res = await fetch(`${API_BASE}/api/campaigns`, {
+    cache: 'no-store',
+    headers: await authHeaders(),
+  });
   if (!res.ok) throw new Error('Falha ao carregar campanhas');
   return res.json();
 }
@@ -161,7 +181,7 @@ export async function createCampaign(input: {
 }) {
   const res = await fetch(`${API_BASE}/api/campaigns`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
     body: JSON.stringify(input),
   });
   if (!res.ok) throw new Error(await parseError(res));
@@ -169,7 +189,10 @@ export async function createCampaign(input: {
 }
 
 export async function fetchAutomations() {
-  const res = await fetch(`${API_BASE}/api/automations`, { cache: 'no-store' });
+  const res = await fetch(`${API_BASE}/api/automations`, {
+    cache: 'no-store',
+    headers: await authHeaders(),
+  });
   if (!res.ok) throw new Error('Falha ao carregar automações');
   return res.json();
 }
@@ -183,7 +206,7 @@ export async function createAutomation(input: {
 }) {
   const res = await fetch(`${API_BASE}/api/automations`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
     body: JSON.stringify(input),
   });
   if (!res.ok) throw new Error(await parseError(res));
@@ -193,7 +216,7 @@ export async function createAutomation(input: {
 export async function updateAutomation(id: string, data: { isActive?: boolean }) {
   const res = await fetch(`${API_BASE}/api/automations/${id}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error(await parseError(res));
@@ -204,7 +227,10 @@ export async function fetchSchedule(from?: string, to?: string) {
   const qs = new URLSearchParams();
   if (from) qs.set('from', from);
   if (to) qs.set('to', to);
-  const res = await fetch(`${API_BASE}/api/schedule?${qs}`, { cache: 'no-store' });
+  const res = await fetch(`${API_BASE}/api/schedule?${qs}`, {
+    cache: 'no-store',
+    headers: await authHeaders(),
+  });
   if (!res.ok) throw new Error('Falha ao carregar agenda');
   return res.json();
 }
@@ -219,7 +245,7 @@ export async function createScheduledPost(input: {
 }) {
   const res = await fetch(`${API_BASE}/api/schedule`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
     body: JSON.stringify(input),
   });
   if (!res.ok) throw new Error(await parseError(res));
@@ -229,7 +255,7 @@ export async function createScheduledPost(input: {
 export async function triggerPipeline() {
   const res = await fetch(`${API_BASE}/offers/run`, {
     method: 'POST',
-    headers: { ...authHeaders() },
+    headers: { ...(await authHeaders()) },
   });
   if (!res.ok) throw new Error('Falha ao disparar pipeline');
   return res.json();
@@ -237,7 +263,10 @@ export async function triggerPipeline() {
 
 export async function fetchTemplates(channel?: string) {
   const qs = channel ? `?channel=${encodeURIComponent(channel)}` : '';
-  const res = await fetch(`${API_BASE}/api/templates${qs}`, { cache: 'no-store' });
+  const res = await fetch(`${API_BASE}/api/templates${qs}`, {
+    cache: 'no-store',
+    headers: await authHeaders(),
+  });
   if (!res.ok) throw new Error('Falha ao carregar templates');
   return res.json();
 }
@@ -250,7 +279,7 @@ export async function createTemplate(input: {
 }) {
   const res = await fetch(`${API_BASE}/api/templates`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
     body: JSON.stringify(input),
   });
   if (!res.ok) throw new Error(await parseError(res));
