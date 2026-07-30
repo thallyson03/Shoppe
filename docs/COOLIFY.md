@@ -151,10 +151,18 @@ O cron interno (`*/5 * * * *`) continua rodando dentro do container — não pre
 | Key | Build | Runtime | Valor |
 |-----|-------|---------|--------|
 | `NEXT_PUBLIC_API_URL` | ✅ | ✅ | URL **pública** da API (ex. `https://api.seudominio.com`) |
+| `API_URL` | | ✅ | *(opcional)* URL interna da API no Coolify — usada pelo proxy `/backend` |
 | `PORT` | | ✅ | `3001` |
 | `NODE_ENV` | | ✅ | `production` |
 
 > `NEXT_PUBLIC_API_URL` precisa estar disponível no **build** (Coolify marca Build Variable).
+> O browser chama `/backend/...`; o Next encaminha para `API_URL` ou `NEXT_PUBLIC_API_URL`.
+
+### Login 404 (`/backend/api/auth/login`)
+
+1. **Redeploy da API** (commit com `POST /api/auth/login`) — confira: `curl -X POST https://SUA-API/api/auth/login -H "Content-Type: application/json" -d "{\"email\":\"admin@shoppe.local\",\"password\":\"admin123\"}"`
+2. Redeploy do **web**
+3. Confirme `NEXT_PUBLIC_API_URL` (Build + Runtime) apontando para a API, não para o dashboard
 
 ### Checklist implantação Fase 1
 

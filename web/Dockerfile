@@ -20,6 +20,12 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3001
 
+# Coolify: defina em Runtime (e Build se usar SSR direto)
+ARG NEXT_PUBLIC_API_URL=
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ARG API_URL=
+ENV API_URL=$API_URL
+
 RUN addgroup -S app && adduser -S app -G app
 
 COPY --from=builder /app/package.json ./

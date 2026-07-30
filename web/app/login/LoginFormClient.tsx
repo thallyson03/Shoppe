@@ -22,8 +22,14 @@ export function LoginFormClient() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message ?? 'Falha no login');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg =
+          res.status === 404
+            ? 'API sem /api/auth/login — faça redeploy da API (Fase 2).'
+            : ((data as { message?: string }).message ?? 'Falha no login');
+        throw new Error(msg);
+      }
       localStorage.setItem('shoppe_token', data.token);
       localStorage.setItem('shoppe_user', JSON.stringify(data.user));
       router.push('/');
