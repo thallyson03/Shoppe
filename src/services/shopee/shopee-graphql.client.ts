@@ -2,11 +2,9 @@
  * Cliente GraphQL da Shopee Affiliate Open API.
  *
  * - productOfferV2 (ofertas)
- * - shopeeOfferV2 (promoções / campanhas da plataforma)
  * - conversionReport (Fase 3)
  */
 
-import { createHash } from 'node:crypto';
 import axios, { type AxiosInstance } from 'axios';
 import { env } from '../../config/env.js';
 import type {
@@ -15,11 +13,6 @@ import type {
   ShopeeConversionNode,
 } from '../../models/conversion.model.js';
 import type { NormalizedOffer, ShopeeProductOffer } from '../../models/offer.model.js';
-import type {
-  FetchShopeeOffersParams,
-  NormalizedPromo,
-  ShopeePlatformOffer,
-} from '../../models/promo.model.js';
 import { ShopeeApiError } from '../../utils/errors.js';
 import { toIdString, toNumber } from '../../utils/format.js';
 import { logger } from '../../utils/logger.js';
@@ -48,17 +41,6 @@ interface ConversionReportData {
       limit: number;
       hasNextPage: boolean;
       scrollId?: string | null;
-    };
-  };
-}
-
-interface ShopeeOfferV2Data {
-  shopeeOfferV2: {
-    nodes: ShopeePlatformOffer[];
-    pageInfo: {
-      page: number;
-      limit: number;
-      hasNextPage: boolean;
     };
   };
 }
@@ -203,52 +185,6 @@ export class ShopeeGraphQLClient {
     return nodes.map((node) => this.normalize(node)).filter((o) => o.itemId && o.offerLink);
   }
 
-  async fetchShopeeOffers(params: FetchShopeeOffersParams = {}): Promise<NormalizedPromo[]> {
-    const keyword = params.keyword ?? env.SHOPEE_PROMO_KEYWORD;
-    const sortType = params.sortType ?? env.SHOPEE_PROMO_SORT_TYPE;
-    const page = params.page ?? 1;
-    const limit = params.limit ?? env.SHOPEE_PROMO_PAGE_LIMIT;
-    const keywordArg = keyword ? `keyword: ${JSON.stringify(keyword)},` : '';
-
-    const query = `{
-      shopeeOfferV2(
-        ${keywordArg}
-        sortType: ${sortType},
-        page: ${page},
-        limit: ${limit}
-      ) {
-        nodes {
-          commissionRate
-          imageUrl
-          offerLink
-          originalLink
-          offerName
-          offerType
-          categoryId
-          collectionId
-          periodStartTime
-          periodEndTime
-        }
-        pageInfo {
-          page
-          limit
-          hasNextPage
-        }
-      }
-    }`;
-
-    logger.info(
-      { keyword: keyword || null, sortType, page, limit },
-      'Buscando promoções shopeeOfferV2',
-    );
-
-    const data = await this.execute<ShopeeOfferV2Data>(query);
-    const nodes = data.shopeeOfferV2?.nodes ?? [];
-    return nodes
-      .map((node) => this.normalizePromo(node))
-      .filter((p) => p.offerName && p.offerLink);
-  }
-
   async fetchConversionReportPage(
     params: FetchConversionReportParams,
   ): Promise<{ nodes: NormalizedConversion[]; hasNextPage: boolean; scrollId: string | null }> {
@@ -350,33 +286,6 @@ export class ShopeeGraphQLClient {
     };
   }
 
-  private normalizePromo(raw: ShopeePlatformOffer): NormalizedPromo {
-    const offerName = raw.offerName?.trim() || 'Campanha Shopee';
-    const originalLink = raw.originalLink ?? null;
-    const periodStartTime = parseUnix(raw.periodStartTime ?? null);
-    const periodEndTime = parseUnix(raw.periodEndTime ?? null);
-    const offerKey = createHash('sha256')
-      .update(
-        `${originalLink ?? raw.offerLink}|${offerName}|${raw.periodStartTime ?? ''}`,
-      )
-      .digest('hex')
-      .slice(0, 32);
-
-    return {
-      offerKey,
-      offerName,
-      offerLink: raw.offerLink,
-      originalLink,
-      imageUrl: raw.imageUrl ?? null,
-      commissionRate: toNumber(raw.commissionRate),
-      offerType: raw.offerType ?? null,
-      categoryId: raw.categoryId != null ? toIdString(raw.categoryId) : null,
-      collectionId: raw.collectionId != null ? toIdString(raw.collectionId) : null,
-      periodStartTime,
-      periodEndTime,
-    };
-  }
-
   private normalizeConversion(raw: ShopeeConversionNode): NormalizedConversion {
     const items: NormalizedConversion['items'] = [];
     let orderStatus: string | null = null;
@@ -420,9 +329,5 @@ export class ShopeeOfferService {
 
   async getOffers(params?: FetchProductOffersParams): Promise<NormalizedOffer[]> {
     return this.client.fetchProductOffers(params);
-  }
-
-  async getPromos(params?: FetchShopeeOffersParams): Promise<NormalizedPromo[]> {
-    return this.client.fetchShopeeOffers(params);
   }
 }

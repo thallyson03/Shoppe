@@ -19,7 +19,6 @@ import { ProductSyncService } from './catalog/product-sync.service.js';
 import { AutomationEngine } from './automations/automation.engine.js';
 import { ScheduleService } from './schedule/schedule.service.js';
 import { ConversionSyncService } from './conversions/conversion-sync.service.js';
-import { ShopeePromoService } from './promos/shopee-promo.service.js';
 import { ShopeeOfferService } from './shopee/index.js';
 import { prisma } from '../database/prisma.js';
 import { sleep } from '../utils/format.js';
@@ -42,7 +41,6 @@ export class OfferPipelineService {
     private readonly automationEngine: AutomationEngine = new AutomationEngine(),
     private readonly scheduleService: ScheduleService = new ScheduleService(),
     private readonly conversionSync: ConversionSyncService = new ConversionSyncService(),
-    private readonly promoService: ShopeePromoService = new ShopeePromoService(),
   ) {}
 
   /**
@@ -103,11 +101,7 @@ export class OfferPipelineService {
       result.publishedCount += await this.scheduleService.processDue();
 
       // 5. Sync conversionReport (Fase 3) — periódico, não bloqueia o ciclo
-      this.runCounter += 1;
       await this.maybeSyncConversions();
-
-      // 6. Promoções shopeeOfferV2 — sync periódico + auto-publish opcional
-      await this.maybeSyncAndPublishPromos();
 
       await this.jobRunRepository.finish(job.id, {
         status: 'success',
@@ -144,6 +138,7 @@ export class OfferPipelineService {
 
   private async maybeSyncConversions(): Promise<void> {
     if (!env.CONVERSION_SYNC_ENABLED) return;
+    this.runCounter += 1;
     if (this.runCounter % env.CONVERSION_SYNC_EVERY_N_RUNS !== 0 && this.runCounter !== 1) {
       return;
     }
@@ -151,34 +146,6 @@ export class OfferPipelineService {
       await this.conversionSync.syncRecent();
     } catch (error) {
       logger.warn({ err: error }, 'Sync conversionReport falhou (pipeline segue)');
-    }
-  }
-
-  private async maybeSyncAndPublishPromos(): Promise<void> {
-    if (env.SHOPEE_PROMO_SYNC_ENABLED) {
-      const shouldSync =
-        this.runCounter === 1 ||
-        this.runCounter % env.SHOPEE_PROMO_SYNC_EVERY_N_RUNS === 0;
-      if (shouldSync) {
-        try {
-          await this.promoService.sync();
-        } catch (error) {
-          logger.warn({ err: error }, 'Sync shopeeOfferV2 falhou (pipeline segue)');
-        }
-      }
-    }
-
-    if (!env.SHOPEE_PROMO_AUTO_PUBLISH) return;
-
-    try {
-      const published = await this.promoService.publishPending(
-        env.SHOPEE_PROMO_MAX_PUBLISH_PER_RUN,
-      );
-      if (published > 0) {
-        logger.info({ published }, 'Promoções auto-publicadas no ciclo');
-      }
-    } catch (error) {
-      logger.warn({ err: error }, 'Auto-publish de promoções falhou (pipeline segue)');
     }
   }
 

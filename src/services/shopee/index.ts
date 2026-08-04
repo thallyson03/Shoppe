@@ -8,5 +8,3 @@ export {
   ShopeeOfferService,
   type FetchProductOffersParams,
 } from './shopee-graphql.client.js';
-
-export type { FetchShopeeOffersParams, NormalizedPromo } from '../../models/promo.model.js';

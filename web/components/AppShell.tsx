@@ -9,7 +9,6 @@ const links = [
   { href: '/', label: 'Dashboard' },
   { href: '/analytics', label: 'Analytics' },
   { href: '/products', label: 'Produtos' },
-  { href: '/promos', label: 'Promoções' },
   { href: '/groups', label: 'WhatsApp' },
   { href: '/campaigns', label: 'Campanhas' },
   { href: '/automations', label: 'Automações' },
