@@ -1,4 +1,4 @@
-import { fetchDashboard, formatBRL, formatPercent } from '@/lib/api';
+import { fetchDashboard, formatBRL, formatDateTime, formatPercent } from '@/lib/api';
 import { RunButton } from '@/components/RunButton';
 
 export const dynamic = 'force-dynamic';
@@ -197,7 +197,7 @@ export default async function DashboardPage() {
           <tbody>
             {recentJobs.map((j) => (
               <tr key={j.id}>
-                <td>{new Date(j.startedAt).toLocaleString('pt-BR')}</td>
+                <td>{formatDateTime(j.startedAt)}</td>
                 <td>
                   <span className={`badge ${j.status === 'success' ? 'ok' : 'muted'}`}>
                     {j.status}

@@ -1,4 +1,4 @@
-import { fetchGroups, fetchProducts, fetchSchedule } from '@/lib/api';
+import { fetchGroups, fetchProducts, fetchSchedule, formatDateTime } from '@/lib/api';
 import { ScheduleForm } from '@/components/ScheduleForm';
 
 export const dynamic = 'force-dynamic';
@@ -68,7 +68,7 @@ export default async function CalendarPage() {
           <tbody>
             {posts.map((p) => (
               <tr key={p.id}>
-                <td>{new Date(p.scheduledAt).toLocaleString('pt-BR')}</td>
+                <td>{formatDateTime(p.scheduledAt)}</td>
                 <td>{p.title}</td>
                 <td>{p.product?.name ?? '—'}</td>
                 <td>{p.group?.name ?? '—'}</td>

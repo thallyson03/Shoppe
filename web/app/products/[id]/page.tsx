@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { fetchProductPrices, formatBRL } from '@/lib/api';
+import { fetchProductPrices, formatBRL, formatDateTime } from '@/lib/api';
 import { PriceChart } from '@/components/PriceChart';
 
 export const dynamic = 'force-dynamic';
@@ -80,7 +80,7 @@ export default async function ProductPricePage({
           <tbody>
             {[...data.history].reverse().map((h: { id: string; priceMin: number; recordedAt: string }) => (
               <tr key={h.id}>
-                <td>{new Date(h.recordedAt).toLocaleString('pt-BR')}</td>
+                <td>{formatDateTime(h.recordedAt)}</td>
                 <td>{formatBRL(h.priceMin)}</td>
               </tr>
             ))}

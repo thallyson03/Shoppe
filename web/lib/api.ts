@@ -317,6 +317,22 @@ export async function createTemplate(input: {
   return res.json();
 }
 
+const DISPLAY_TIMEZONE = 'America/Sao_Paulo';
+
+export function formatDateTime(value: string | Date | null | undefined): string {
+  if (value == null) return '—';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString('pt-BR', { timeZone: DISPLAY_TIMEZONE });
+}
+
+export function formatDate(value: string | Date | null | undefined): string {
+  if (value == null) return '—';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString('pt-BR', { timeZone: DISPLAY_TIMEZONE });
+}
+
 export function formatBRL(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value)) return '—';
   return new Intl.NumberFormat('pt-BR', {

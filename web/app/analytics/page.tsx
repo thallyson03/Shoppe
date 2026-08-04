@@ -1,4 +1,4 @@
-import { fetchAnalytics, formatBRL } from '@/lib/api';
+import { fetchAnalytics, formatBRL, formatDate, formatDateTime } from '@/lib/api';
 import { SyncConversionsButton } from '@/components/SyncConversionsButton';
 
 export const dynamic = 'force-dynamic';
@@ -35,8 +35,7 @@ export default async function AnalyticsPage() {
         <div>
           <h1>Analytics</h1>
           <p>
-            {new Date(data.from).toLocaleDateString('pt-BR')} →{' '}
-            {new Date(data.to).toLocaleDateString('pt-BR')}
+            {formatDate(data.from)} → {formatDate(data.to)}
           </p>
         </div>
         <SyncConversionsButton />
@@ -124,7 +123,7 @@ export default async function AnalyticsPage() {
             <tbody>
               {data.recent.map((c: { id: string; purchaseTime: string; orderStatus: string | null; totalCommission: number }) => (
                 <tr key={c.id}>
-                  <td>{new Date(c.purchaseTime).toLocaleString('pt-BR')}</td>
+                  <td>{formatDateTime(c.purchaseTime)}</td>
                   <td>{c.orderStatus ?? '—'}</td>
                   <td>{formatBRL(c.totalCommission)}</td>
                 </tr>

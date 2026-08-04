@@ -1,4 +1,4 @@
-import { fetchCampaigns, fetchGroups } from '@/lib/api';
+import { fetchCampaigns, fetchGroups, formatDateTime } from '@/lib/api';
 import { CampaignForm } from '@/components/CampaignForm';
 
 export const dynamic = 'force-dynamic';
@@ -53,8 +53,8 @@ export default async function CampaignsPage() {
                 <td>{c.name}</td>
                 <td>{c.channel ? `${c.channel.name}` : '—'}</td>
                 <td>{c.group?.name ?? '—'}</td>
-                <td>{new Date(c.startsAt).toLocaleString('pt-BR')}</td>
-                <td>{new Date(c.endsAt).toLocaleString('pt-BR')}</td>
+                <td>{formatDateTime(c.startsAt)}</td>
+                <td>{formatDateTime(c.endsAt)}</td>
                 <td><span className={`badge ${c.isActive ? 'ok' : 'muted'}`}>{c.isActive ? 'ativa' : 'inativa'}</span></td>
               </tr>
             ))}
