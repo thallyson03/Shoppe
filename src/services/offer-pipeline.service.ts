@@ -213,6 +213,13 @@ export class OfferPipelineService {
 
       try {
         const groups = await this.resolveTargetGroups();
+        if (groups.length === 0) {
+          logger.warn(
+            'Nenhum grupo WhatsApp ativo no banco — publicação pausada (cadastre em /groups)',
+          );
+          break;
+        }
+
         let successCount = 0;
 
         for (const group of groups) {
@@ -283,20 +290,15 @@ export class OfferPipelineService {
   }
 
   /**
-   * Grupos ativos no banco; se vazio, fallback para EVOLUTION_GROUP_JID do .env
+   * Apenas grupos ativos cadastrados no dashboard.
+   * Sem fallback para EVOLUTION_GROUP_JID — exclusão/desativação deve parar os envios.
    */
   private async resolveTargetGroups(): Promise<Array<{ id: string | null; groupJid: string }>> {
-    const groups = await prisma.whatsAppGroup.findMany({
+    return prisma.whatsAppGroup.findMany({
       where: { isActive: true },
       select: { id: true, groupJid: true },
       orderBy: { createdAt: 'asc' },
     });
-
-    if (groups.length > 0) {
-      return groups;
-    }
-
-    return [{ id: null, groupJid: env.EVOLUTION_GROUP_JID }];
   }
 
   private hashOffer(offer: NormalizedOffer): string {

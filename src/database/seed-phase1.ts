@@ -15,20 +15,34 @@ export async function seedPhase1Defaults(): Promise<void> {
     update: { isActive: true },
   });
 
-  await prisma.whatsAppGroup.upsert({
+  // Só cria o grupo padrão em instalação nova.
+  // Nunca recria/reativa após exclusão no dashboard (evita disparar no grupo removido).
+  const existingGroup = await prisma.whatsAppGroup.findUnique({
     where: { groupJid: env.EVOLUTION_GROUP_JID },
-    create: {
-      name: 'Shopee',
-      groupJid: env.EVOLUTION_GROUP_JID,
-      categories: ['geral'],
-      isActive: true,
-      channelId: channel.id,
-    },
-    update: {
-      channelId: channel.id,
-      isActive: true,
-    },
   });
+  if (!existingGroup) {
+    const [groupCount, publishLogCount] = await Promise.all([
+      prisma.whatsAppGroup.count(),
+      prisma.publishLog.count(),
+    ]);
+    if (groupCount === 0 && publishLogCount === 0) {
+      await prisma.whatsAppGroup.create({
+        data: {
+          name: 'Shopee',
+          groupJid: env.EVOLUTION_GROUP_JID,
+          categories: ['geral'],
+          isActive: true,
+          channelId: channel.id,
+        },
+      });
+      logger.info({ groupJid: env.EVOLUTION_GROUP_JID }, 'Seed grupo WhatsApp criado');
+    } else {
+      logger.info(
+        { groupCount, publishLogCount },
+        'Seed: grupo do .env não recriado (já houve configuração/histórico)',
+      );
+    }
+  }
 
   // Admin seed
   const adminEmail = env.SEED_ADMIN_EMAIL.toLowerCase();

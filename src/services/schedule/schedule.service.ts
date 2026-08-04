@@ -48,7 +48,19 @@ export class ScheduleService {
           .join('\n\n');
 
       const imageUrl = post.imageUrl ?? post.product?.imageUrl ?? null;
-      const groupJid = post.group?.groupJid ?? env.EVOLUTION_GROUP_JID;
+      const groupJid = post.group?.isActive ? post.group.groupJid : null;
+
+      if (!groupJid) {
+        await prisma.scheduledPost.update({
+          where: { id: post.id },
+          data: {
+            status: 'failed',
+            errorMessage: 'Grupo removido ou inativo — cadastre um grupo ativo em /groups',
+          },
+        });
+        logger.warn({ postId: post.id }, 'Post agendado sem grupo ativo — marcado como failed');
+        continue;
+      }
 
       try {
         await this.evolution.sendOfferToGroup(caption, imageUrl, groupJid);
