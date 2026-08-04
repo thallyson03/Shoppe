@@ -1,4 +1,5 @@
 import { fetchGroups } from '@/lib/api';
+import { GroupDeleteButton } from '@/components/GroupDeleteButton';
 import { GroupForm } from '@/components/GroupForm';
 import { GroupToggle } from '@/components/GroupToggle';
 
@@ -43,6 +44,7 @@ export default async function GroupsPage() {
               <th>JID</th>
               <th>Categorias</th>
               <th>Status</th>
+              <th>Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -52,10 +54,11 @@ export default async function GroupsPage() {
                 <td><code>{g.groupJid}</code></td>
                 <td>{g.categories?.join(', ') || '—'}</td>
                 <td><GroupToggle id={g.id} isActive={g.isActive} /></td>
+                <td><GroupDeleteButton id={g.id} name={g.name} /></td>
               </tr>
             ))}
             {groups.length === 0 && !error && (
-              <tr><td colSpan={4}>Nenhum grupo ainda — cadastre acima.</td></tr>
+              <tr><td colSpan={5}>Nenhum grupo ainda — cadastre acima.</td></tr>
             )}
           </tbody>
         </table>

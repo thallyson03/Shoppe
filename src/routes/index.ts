@@ -295,6 +295,14 @@ export function createRoutes(cronJob: OffersCronJob): Router {
     }
   });
 
+  router.delete('/api/groups/:id', requireAuth, requireWriteAccess, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(await dashboard.deleteGroup(paramId(req)));
+    } catch (error) {
+      next(error);
+    }
+  });
+
   router.get('/api/campaigns', async (_req: Request, res: Response, next: NextFunction) => {
     try {
       res.json(await dashboard.listCampaigns());

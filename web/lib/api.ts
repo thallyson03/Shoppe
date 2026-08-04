@@ -164,6 +164,15 @@ export async function updateGroup(id: string, data: { isActive?: boolean }) {
   return res.json();
 }
 
+export async function deleteGroup(id: string) {
+  const res = await fetch(`${API_BASE}/api/groups/${id}`, {
+    method: 'DELETE',
+    headers: await authHeaders(),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json();
+}
+
 export async function fetchCampaigns() {
   const res = await fetch(`${API_BASE}/api/campaigns`, {
     cache: 'no-store',

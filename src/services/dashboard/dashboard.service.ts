@@ -3,6 +3,7 @@
  */
 
 import { prisma } from '../../database/prisma.js';
+import { AppError } from '../../utils/errors.js';
 import { PublishQuotaService } from '../filters/publish-quota.service.js';
 
 function startOfDay(d = new Date()): Date {
@@ -359,6 +360,15 @@ export class DashboardService {
         categories: data.categories,
       },
     });
+  }
+
+  async deleteGroup(id: string) {
+    const existing = await prisma.whatsAppGroup.findUnique({ where: { id } });
+    if (!existing) {
+      throw new AppError('Grupo não encontrado', 'GROUP_NOT_FOUND', 404);
+    }
+    await prisma.whatsAppGroup.delete({ where: { id } });
+    return { ok: true, id };
   }
 
   async getProductPriceHistory(productId: string) {

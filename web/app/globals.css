@@ -133,6 +133,16 @@ textarea {
   border: 1px solid var(--border);
 }
 
+.btn.danger {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+}
+
+.btn.danger:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.12);
+}
+
 .grid {
   display: grid;
   gap: 14px;
