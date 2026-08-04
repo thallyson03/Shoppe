@@ -94,6 +94,23 @@ const envSchema = z.object({
     .transform((v) => v === 'true' || v === '1'),
   OPENROUTER_API_KEY: z.string().optional().default(''),
   OPENROUTER_MODEL: z.string().default('openai/gpt-4o-mini'),
+
+  /** Promoções Shopee (shopeeOfferV2) */
+  SHOPEE_PROMO_SYNC_ENABLED: z
+    .string()
+    .optional()
+    .default('true')
+    .transform((v) => v === 'true' || v === '1'),
+  SHOPEE_PROMO_SYNC_EVERY_N_RUNS: z.coerce.number().int().min(1).max(288).default(6),
+  SHOPEE_PROMO_AUTO_PUBLISH: z
+    .string()
+    .optional()
+    .default('false')
+    .transform((v) => v === 'true' || v === '1'),
+  SHOPEE_PROMO_KEYWORD: z.string().optional().default(''),
+  SHOPEE_PROMO_SORT_TYPE: z.coerce.number().int().min(1).max(2).default(1),
+  SHOPEE_PROMO_PAGE_LIMIT: z.coerce.number().int().min(1).max(50).default(20),
+  SHOPEE_PROMO_MAX_PUBLISH_PER_RUN: z.coerce.number().int().min(1).max(20).default(1),
 });
 
 export type AppConfig = z.infer<typeof envSchema>;

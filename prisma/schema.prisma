@@ -350,3 +350,31 @@ model ConversionItem {
   @@index([orderId])
   @@map("conversion_items")
 }
+
+// -----------------------------------------------------------------------------
+// Promoções Shopee (shopeeOfferV2 — campanhas/coleções da plataforma)
+// -----------------------------------------------------------------------------
+
+model ShopeePromo {
+  id              String    @id @default(cuid())
+  offerKey        String    @unique @map("offer_key")
+  offerName       String    @map("offer_name")
+  offerLink       String    @map("offer_link")
+  originalLink    String?   @map("original_link")
+  imageUrl        String?   @map("image_url")
+  commissionRate  Decimal?  @map("commission_rate") @db.Decimal(8, 4)
+  offerType       Int?      @map("offer_type")
+  categoryId      String?   @map("category_id")
+  collectionId    String?   @map("collection_id")
+  periodStartTime DateTime? @map("period_start_time")
+  periodEndTime   DateTime? @map("period_end_time")
+  published       Boolean   @default(false)
+  publishedAt     DateTime? @map("published_at")
+  messageText     String?   @map("message_text") @db.Text
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@index([published, createdAt])
+  @@index([periodEndTime])
+  @@map("shopee_promos")
+}

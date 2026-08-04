@@ -8,6 +8,7 @@
  */
 
 import { env } from '../../config/env.js';
+import { prisma } from '../../database/prisma.js';
 import { OfferRepository } from '../../repositories/offer.repository.js';
 import { logger } from '../../utils/logger.js';
 
@@ -35,10 +36,7 @@ export class PublishQuotaService {
   async evaluate(now = new Date()): Promise<QuotaDecision> {
     const period = this.resolvePeriod(now);
     const dayRange = this.getDayRange(now);
-    const publishedToday = await this.offerRepository.countPublishedBetween(
-      dayRange.start,
-      dayRange.end,
-    );
+    const publishedToday = await this.countAllPublishedBetween(dayRange.start, dayRange.end);
 
     if (period === 'closed') {
       return this.deny('Fora da janela de envio (manhã/tarde/noite)', period, publishedToday, 0, 0);
@@ -55,7 +53,7 @@ export class PublishQuotaService {
     }
 
     const periodRange = this.getPeriodRange(now, period);
-    const publishedInPeriod = await this.offerRepository.countPublishedBetween(
+    const publishedInPeriod = await this.countAllPublishedBetween(
       periodRange.start,
       periodRange.end,
     );
@@ -71,7 +69,7 @@ export class PublishQuotaService {
       );
     }
 
-    const lastPublishedAt = await this.offerRepository.findLastPublishedAt();
+    const lastPublishedAt = await this.findLastPublishedAtAny();
     if (lastPublishedAt) {
       const elapsed = now.getTime() - lastPublishedAt.getTime();
       if (elapsed < this.minIntervalMs) {
@@ -144,7 +142,7 @@ export class PublishQuotaService {
       env.PUBLISH_MORNING_START,
       env.PUBLISH_AFTERNOON_START,
     );
-    const morningUsed = await this.offerRepository.countPublishedBetween(
+    const morningUsed = await this.countAllPublishedBetween(
       morningRange.start,
       morningRange.end,
     );
@@ -159,7 +157,7 @@ export class PublishQuotaService {
       env.PUBLISH_AFTERNOON_START,
       env.PUBLISH_NIGHT_START,
     );
-    const afternoonUsed = await this.offerRepository.countPublishedBetween(
+    const afternoonUsed = await this.countAllPublishedBetween(
       afternoonRange.start,
       afternoonRange.end,
     );
@@ -281,5 +279,34 @@ export class PublishQuotaService {
     }
     const end = this.zonedTimeToUtc(year, month, day, endHour, 0, 0);
     return { start, end };
+  }
+
+  /** Conta ofertas de produto + promoções publicadas no intervalo (mesma cota). */
+  private async countAllPublishedBetween(start: Date, end: Date): Promise<number> {
+    const [offers, promos] = await Promise.all([
+      this.offerRepository.countPublishedBetween(start, end),
+      prisma.shopeePromo.count({
+        where: {
+          published: true,
+          publishedAt: { gte: start, lt: end },
+        },
+      }),
+    ]);
+    return offers + promos;
+  }
+
+  private async findLastPublishedAtAny(): Promise<Date | null> {
+    const [offerAt, promo] = await Promise.all([
+      this.offerRepository.findLastPublishedAt(),
+      prisma.shopeePromo.findFirst({
+        where: { published: true, publishedAt: { not: null } },
+        orderBy: { publishedAt: 'desc' },
+        select: { publishedAt: true },
+      }),
+    ]);
+    const promoAt = promo?.publishedAt ?? null;
+    if (!offerAt) return promoAt;
+    if (!promoAt) return offerAt;
+    return offerAt > promoAt ? offerAt : promoAt;
   }
 }

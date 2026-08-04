@@ -224,6 +224,56 @@ export function createRoutes(cronJob: OffersCronJob): Router {
     },
   );
 
+  router.get('/api/promos', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { ShopeePromoService } = await import('../services/promos/shopee-promo.service.js');
+      const query = z
+        .object({
+          q: z.string().optional(),
+          published: z
+            .enum(['true', 'false'])
+            .optional()
+            .transform((v) => (v === undefined ? undefined : v === 'true')),
+          limit: z.coerce.number().optional(),
+        })
+        .parse(req.query);
+      const promos = new ShopeePromoService();
+      res.json(await promos.list(query));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post(
+    '/api/promos/sync',
+    requireAuth,
+    requireWriteAccess,
+    async (_req: Request, res: Response, next: NextFunction) => {
+      try {
+        const { ShopeePromoService } = await import('../services/promos/shopee-promo.service.js');
+        const promos = new ShopeePromoService();
+        res.json(await promos.sync());
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  router.post(
+    '/api/promos/:id/publish',
+    requireAuth,
+    requireWriteAccess,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const { ShopeePromoService } = await import('../services/promos/shopee-promo.service.js');
+        const promos = new ShopeePromoService();
+        res.json(await promos.publishOne(paramId(req)));
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
   router.get('/api/products', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const query = z

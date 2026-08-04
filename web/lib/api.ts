@@ -302,6 +302,55 @@ export async function syncConversions() {
   return res.json();
 }
 
+export type ShopeePromo = {
+  id: string;
+  offerKey: string;
+  offerName: string;
+  offerLink: string;
+  originalLink: string | null;
+  imageUrl: string | null;
+  commissionRate: number | null;
+  offerType: number | null;
+  periodStartTime: string | null;
+  periodEndTime: string | null;
+  published: boolean;
+  publishedAt: string | null;
+  createdAt: string;
+};
+
+export async function fetchPromos(params?: {
+  q?: string;
+  published?: boolean;
+}): Promise<ShopeePromo[]> {
+  const qs = new URLSearchParams();
+  if (params?.q) qs.set('q', params.q);
+  if (params?.published != null) qs.set('published', String(params.published));
+  const res = await fetch(`${API_BASE}/api/promos?${qs}`, {
+    cache: 'no-store',
+    headers: await authHeaders(),
+  });
+  if (!res.ok) throw new Error('Falha ao carregar promoções');
+  return res.json();
+}
+
+export async function syncPromos() {
+  const res = await fetch(`${API_BASE}/api/promos/sync`, {
+    method: 'POST',
+    headers: { ...(await authHeaders()) },
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{ fetched: number; upserted: number; skippedExpired: number }>;
+}
+
+export async function publishPromo(id: string) {
+  const res = await fetch(`${API_BASE}/api/promos/${id}/publish`, {
+    method: 'POST',
+    headers: { ...(await authHeaders()) },
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{ id: string; groups: number }>;
+}
+
 export async function createTemplate(input: {
   name: string;
   channel?: string;
