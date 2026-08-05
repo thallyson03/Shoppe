@@ -7,4 +7,5 @@ export {
   ShopeeGraphQLClient,
   ShopeeOfferService,
   type FetchProductOffersParams,
+  type ProductOffersPage,
 } from './shopee-graphql.client.js';

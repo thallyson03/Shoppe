@@ -18,10 +18,14 @@ const links = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const isLogin = pathname === '/login' || pathname.startsWith('/login/');
+  const isBare =
+    pathname === '/login' ||
+    pathname.startsWith('/login/') ||
+    pathname === '/catalog' ||
+    pathname.startsWith('/catalog/');
 
-  if (isLogin) {
-    return <div className="main" style={{ minHeight: '100vh' }}>{children}</div>;
+  if (isBare) {
+    return <div style={{ minHeight: '100vh' }}>{children}</div>;
   }
 
   return (

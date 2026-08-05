@@ -20,6 +20,7 @@ import {
 } from '../middleware/auth.middleware.js';
 import { AppError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
+import { isRateLimited } from '../utils/rate-limit.js';
 
 const conditionSchema = z.object({
   field: z.enum(['discount', 'rating', 'commission', 'sales', 'price']),
@@ -42,14 +43,14 @@ export function createRoutes(cronJob: OffersCronJob): Router {
   const authService = new AuthService();
   const templateService = new TemplateService();
 
-  /** Libera health/status/login; o resto de /api e /offers/run exige JWT se AUTH_ENABLED */
+  /** Libera health/status/login/catálogo público; o resto de /api e /offers/run exige JWT */
   router.use((req: Request, res: Response, next: NextFunction) => {
     const path = req.path;
     if (path === '/health' || path === '/status' || path === '/') {
       next();
       return;
     }
-    if (path === '/api/auth/login') {
+    if (path === '/api/auth/login' || path.startsWith('/api/public/')) {
       next();
       return;
     }
@@ -58,6 +59,42 @@ export function createRoutes(cronJob: OffersCronJob): Router {
       return;
     }
     next();
+  });
+
+  router.get('/api/public/catalog', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const ip =
+        (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+        req.ip ||
+        'unknown';
+      if (isRateLimited(`catalog:${ip}`, 30, 60_000)) {
+        throw new AppError('Muitas buscas — aguarde um minuto', 'RATE_LIMIT', 429);
+      }
+
+      const query = z
+        .object({
+          q: z.string().optional(),
+          page: z.coerce.number().int().min(1).optional(),
+          limit: z.coerce.number().int().min(1).max(50).optional(),
+          sort: z
+            .enum(['relevance', 'sales', 'price_asc', 'price_desc', 'commission', 'rating'])
+            .optional(),
+          minPrice: z.coerce.number().min(0).optional(),
+          maxPrice: z.coerce.number().min(0).optional(),
+          minRating: z.coerce.number().min(0).max(5).optional(),
+          minDiscount: z.coerce.number().min(0).max(100).optional(),
+          categoryId: z.coerce.number().int().positive().optional(),
+        })
+        .parse(req.query);
+
+      const { PublicCatalogService } = await import(
+        '../services/catalog/public-catalog.service.js'
+      );
+      const catalog = new PublicCatalogService();
+      res.json(await catalog.search(query));
+    } catch (error) {
+      next(error);
+    }
   });
 
   router.get('/health', async (_req: Request, res: Response, next: NextFunction) => {

@@ -51,6 +51,15 @@ export interface FetchProductOffersParams {
   sortType?: number;
   page?: number;
   limit?: number;
+  /** ID de categoria Shopee (productCatId) */
+  productCatId?: number;
+}
+
+export interface ProductOffersPage {
+  items: NormalizedOffer[];
+  page: number;
+  limit: number;
+  hasNextPage: boolean;
 }
 
 function parseMoney(value: string | number | null | undefined): number | null {
@@ -129,6 +138,13 @@ export class ShopeeGraphQLClient {
   }
 
   async fetchProductOffers(params: FetchProductOffersParams = {}): Promise<NormalizedOffer[]> {
+    const page = await this.fetchProductOffersPage(params);
+    return page.items;
+  }
+
+  async fetchProductOffersPage(
+    params: FetchProductOffersParams = {},
+  ): Promise<ProductOffersPage> {
     const keyword = params.keyword ?? env.SHOPEE_KEYWORD;
     const listType = params.listType ?? env.SHOPEE_LIST_TYPE;
     const sortType = params.sortType ?? env.SHOPEE_SORT_TYPE;
@@ -136,10 +152,15 @@ export class ShopeeGraphQLClient {
     const limit = params.limit ?? env.SHOPEE_PAGE_LIMIT;
 
     const keywordArg = keyword ? `keyword: ${JSON.stringify(keyword)},` : '';
+    const catArg =
+      params.productCatId != null && Number.isFinite(params.productCatId)
+        ? `productCatId: ${params.productCatId},`
+        : '';
 
     const query = `{
       productOfferV2(
         ${keywordArg}
+        ${catArg}
         listType: ${listType},
         sortType: ${sortType},
         page: ${page},
@@ -175,14 +196,27 @@ export class ShopeeGraphQLClient {
     }`;
 
     logger.info(
-      { keyword: keyword || null, listType, sortType, page, limit },
+      {
+        keyword: keyword || null,
+        listType,
+        sortType,
+        page,
+        limit,
+        productCatId: params.productCatId ?? null,
+      },
       'Buscando ofertas na Shopee',
     );
 
     const data = await this.execute<ProductOfferV2Data>(query);
     const nodes = data.productOfferV2?.nodes ?? [];
+    const pageInfo = data.productOfferV2?.pageInfo;
 
-    return nodes.map((node) => this.normalize(node)).filter((o) => o.itemId && o.offerLink);
+    return {
+      items: nodes.map((node) => this.normalize(node)).filter((o) => o.itemId && o.offerLink),
+      page: pageInfo?.page ?? page,
+      limit: pageInfo?.limit ?? limit,
+      hasNextPage: Boolean(pageInfo?.hasNextPage),
+    };
   }
 
   async fetchConversionReportPage(
@@ -329,5 +363,9 @@ export class ShopeeOfferService {
 
   async getOffers(params?: FetchProductOffersParams): Promise<NormalizedOffer[]> {
     return this.client.fetchProductOffers(params);
+  }
+
+  async getOffersPage(params?: FetchProductOffersParams): Promise<ProductOffersPage> {
+    return this.client.fetchProductOffersPage(params);
   }
 }

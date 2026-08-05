@@ -1,15 +1,20 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const PUBLIC = ['/login'];
+const PUBLIC = ['/login', '/catalog'];
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (PUBLIC.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
-    // Já logado → manda pro dashboard
-    if (req.cookies.get('shoppe_token')?.value) {
-      return NextResponse.redirect(new URL('/', req.url));
+    // Já logado em /login → manda pro dashboard (catálogo permanece acessível)
+    if (
+      pathname === '/login' ||
+      pathname.startsWith('/login/')
+    ) {
+      if (req.cookies.get('shoppe_token')?.value) {
+        return NextResponse.redirect(new URL('/', req.url));
+      }
     }
     return NextResponse.next();
   }

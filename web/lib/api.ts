@@ -109,6 +109,53 @@ export async function fetchDashboard(): Promise<DashboardOverview> {
   return res.json();
 }
 
+export type PublicCatalogResponse = {
+  page: number;
+  limit: number;
+  hasNextPage: boolean;
+  items: Array<{
+    itemId: string;
+    name: string;
+    imageUrl: string | null;
+    offerLink: string;
+    priceMin: number | null;
+    priceMax: number | null;
+    priceDiscountRate: number | null;
+    sales: number | null;
+    ratingStar: number | null;
+    shopName: string | null;
+  }>;
+};
+
+export async function fetchPublicCatalog(params?: {
+  q?: string;
+  page?: number;
+  limit?: number;
+  sort?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  minRating?: number;
+  minDiscount?: number;
+  categoryId?: number;
+}): Promise<PublicCatalogResponse> {
+  const qs = new URLSearchParams();
+  if (params?.q) qs.set('q', params.q);
+  if (params?.page) qs.set('page', String(params.page));
+  if (params?.limit) qs.set('limit', String(params.limit));
+  if (params?.sort) qs.set('sort', params.sort);
+  if (params?.minPrice != null) qs.set('minPrice', String(params.minPrice));
+  if (params?.maxPrice != null) qs.set('maxPrice', String(params.maxPrice));
+  if (params?.minRating != null) qs.set('minRating', String(params.minRating));
+  if (params?.minDiscount != null) qs.set('minDiscount', String(params.minDiscount));
+  if (params?.categoryId != null) qs.set('categoryId', String(params.categoryId));
+
+  const res = await fetch(`${API_BASE}/api/public/catalog?${qs}`, {
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json();
+}
+
 export async function fetchProducts(params?: {
   q?: string;
 }): Promise<ProductListResponse> {
